@@ -11,17 +11,15 @@ uploaded_file = st.file_uploader("Carregue seu Excel aqui", type=["xlsx"])
 if uploaded_file:
     df = pd.read_excel(uploaded_file)
     
-    st.write("Colunas encontradas:", df.columns.tolist())
-    
     df.columns = df.columns.str.strip()
     
-    # MAPA CORRIGIDO COM OS NOMES REAIS DO SEU EXCEL
+    # MAPA CORRIGIDO - usando Tienda que é o nome da loja
     mapa = {
         'Fecha':'data',
-        'Nombre Aeropuerto':'loja', 
+        'Tienda':'loja', # <-- Mudei pra Tienda
         'Categoria':'categoria',
         'Importe con IVA':'valor_total',
-        'Código Aeropuerto':'id_pedido'
+        'Código Ae':'id_pedido'
     }
     
     df = df.rename(columns=mapa)
@@ -30,17 +28,24 @@ if uploaded_file:
     df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce')
     df = df.dropna(subset=['valor_total', 'data', 'loja'])
     
-    st.sidebar.header("Filtros")
+    # ===== FILTROS NA BARRA LATERAL =====
+    st.sidebar.header("🔍 Filtros")
+    
     min_data, max_data = df['data'].min(), df['data'].max()
     data = st.sidebar.date_input("Periodo", [min_data, max_data])
-    loja = st.sidebar.multiselect("Loja", df['loja'].dropna().unique())
-    categoria = st.sidebar.multiselect("Categoria", df['categoria'].dropna().unique())
     
+    loja = st.sidebar.multiselect("Loja", options=sorted(df['loja'].dropna().unique()))
+    categoria = st.sidebar.multiselect("Categoria", options=sorted(df['categoria'].dropna().unique()))
+    
+    # Aplica filtros
     if len(data) == 2:
         df = df[(df['data'] >= pd.to_datetime(data[0])) & (df['data'] <= pd.to_datetime(data[1]))]
-    if loja: df = df[df['loja'].isin(loja)]
-    if categoria: df = df[df['categoria'].isin(categoria)]
+    if loja: 
+        df = df[df['loja'].isin(loja)]
+    if categoria: 
+        df = df[df['categoria'].isin(categoria)]
     
+    # ===== KPIs =====
     if len(df) > 0:
         faturamento = df['valor_total'].sum()
         ticket_medio = df['valor_total'].mean()
@@ -51,10 +56,13 @@ if uploaded_file:
         col2.metric("Ticket Médio", f"R$ {ticket_medio:,.2f}")
         col3.metric("Melhor Loja", melhor_loja)
         
-        fig1 = px.bar(df.groupby('categoria')['valor_total'].sum().reset_index(), x='categoria', y='valor_total', title='Vendas por Categoria')
-        fig2 = px.line(df.groupby('data')['valor_total'].sum().reset_index(), x='data', y='valor_total', title='Faturamento ao Longo do Tempo')
-        
+        # ===== GRAFICOS =====
+        st.subheader("Vendas por Categoria")
+        fig1 = px.bar(df.groupby('categoria')['valor_total'].sum().reset_index(), x='categoria', y='valor_total')
         st.plotly_chart(fig1, use_container_width=True)
+        
+        st.subheader("Faturamento ao Longo do Tempo")
+        fig2 = px.line(df.groupby('data')['valor_total'].sum().reset_index(), x='data', y='valor_total')
         st.plotly_chart(fig2, use_container_width=True)
     else:
         st.warning("Nenhum dado encontrado com os filtros selecionados")
