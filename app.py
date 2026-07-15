@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -12,11 +11,12 @@ if uploaded_file:
     df = pd.read_excel(uploaded_file, sheet_name=0, header=0)
     df.columns = df.columns.str.strip()
 
-    # MAPA COM TIENDA
+    # MAPA DAS COLUNAS DO SEU EXCEL
     mapa = {
         'Fecha':'data',
-        'Tienda':'loja', # <-- Voltou pro código da loja T549
+        'Tienda':'loja',
         'Categoria':'categoria',
+        'Descripción artículo':'produto',
         'Importe con IVA':'valor_total',
         'Código Ae':'id_pedido'
     }
@@ -26,6 +26,7 @@ if uploaded_file:
 
     df['data'] = pd.to_datetime(df['data'], errors='coerce')
     df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce')
+    df['ano'] = df['data'].dt.year
 
     # ===== FILTROS =====
     st.sidebar.header("🔍 Filtros")
@@ -36,8 +37,10 @@ if uploaded_file:
 
     if len(data) == 2:
         df = df[(df['data'] >= pd.to_datetime(data[0])) & (df['data'] <= pd.to_datetime(data[1]))]
-    if loja: df = df[df['loja'].isin(loja)]
-    if categoria: df = df[df['categoria'].isin(categoria)]
+    if loja:
+        df = df[df['loja'].isin(loja)]
+    if categoria:
+        df = df[df['categoria'].isin(categoria)]
 
     # ===== KPIs =====
     if len(df) > 0:
@@ -47,13 +50,31 @@ if uploaded_file:
         categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax()
         valor_categoria_top = df.groupby('categoria')['valor_total'].sum().max()
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Faturamento Total", f"R$ {faturamento:,.2f}")
+        # CALCULO CRESCIMENTO VS ANO ANTERIOR
+        ano_selecionado = df['ano'].max()
+        ano_anterior = ano_selecionado - 1
+        faturamento_ano_atual = df[df['ano'] == ano_selecionado]['valor_total'].sum()
+        faturamento_ano_anterior = df[df['ano'] == ano_anterior]['valor_total'].sum()
+
+        if faturamento_ano_anterior > 0:
+            crescimento = ((faturamento_ano_atual - faturamento_ano_anterior) / faturamento_ano_anterior) * 100
+        else:
+            crescimento = 0
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Faturamento Total", f"R$ {faturamento:,.2f}", f"{crescimento:.1f}% vs {ano_anterior}")
         col2.metric("Ticket Médio", f"R$ {ticket_medio:,.2f}")
         col3.metric("Melhor Loja", melhor_loja)
         col4.metric("Categoria Top", categoria_top, f"R$ {valor_categoria_top:,.2f}")
+        col5.metric("Ano em Análise", int(ano_selecionado))
 
         st.divider()
+
+        # ===== COMPARAÇÃO ANO ANTERIOR =====
+        st.subheader("📈 Comparativo Anual")
+        faturamento_ano = df.groupby('ano')['valor_total'].sum().reset_index()
+        fig_ano = px.bar(faturamento_ano, x='ano', y='valor_total', text_auto='.2s', title="Faturamento por Ano")
+        st.plotly_chart(fig_ano, use_container_width=True)
 
         # ===== GRAFICOS =====
         col_graf1, col_graf2 = st.columns(2)
@@ -65,10 +86,15 @@ if uploaded_file:
             st.plotly_chart(fig1, use_container_width=True)
 
         with col_graf2:
-            st.subheader("Faturamento ao Longo do Tempo")
-            fig2 = px.line(df.groupby('data')['valor_total'].sum().reset_index(),
-                           x='data', y='valor_total')
-            st.plotly_chart(fig2, use_container_width=True)
+            st.subheader("Top 10 Produtos Mais Vendidos")
+            top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
+            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
+            fig3.update_layout(yaxis={'categoryorder':'total ascending'})
+            st.plotly_chart(fig3, use_container_width=True)
+
+        st.subheader("Faturamento ao Longo do Tempo")
+        fig2 = px.line(df.groupby('data')['valor_total'].sum().reset_index(), x='data', y='valor_total')
+        st.plotly_chart(fig2, use_container_width=True)
 
     else:
         st.warning("Nenhum dado encontrado com os filtros selecionados")
