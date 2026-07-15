@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -33,92 +32,62 @@ if uploaded_file:
     df['mes_nome'] = df['data'].dt.month_name()
     df['dia'] = df['data'].dt.day
 
-    # ===== FILTROS COM BOTÕES =====
-    st.sidebar.header("🔍 Filtros")
+    # ===== FILTROS COM BOTÕES NA TELA =====
+    st.subheader("🔍 Filtros Rápidos")
 
-    anos_disponiveis = sorted(df['ano'].unique())
-    ano_selecionado = st.sidebar.selectbox("Selecione o Ano", anos_disponiveis)
-    df_ano = df[df['ano'] == ano_selecionado]
+    # GUARDAR SELEÇÃO
+    if 'ano_sel' not in st.session_state:
+        st.session_state.ano_sel = df['ano'].max()
+    if 'mes_sel' not in st.session_state:
+        st.session_state.mes_sel = df['mes'].max()
+    if 'dias_sel' not in st.session_state:
+        st.session_state.dias_sel = []
 
+    # BOTÕES DE ANO
+    st.write("**Ano:**")
+    col_anos = st.columns(len(df['ano'].unique()))
+    for i, ano in enumerate(sorted(df['ano'].unique())):
+        if col_anos[i].button(f"{ano}", key=f"ano_{ano}", use_container_width=True):
+            st.session_state.ano_sel = ano
+            st.session_state.mes_sel = df[df['ano']==ano]['mes'].max()
+
+    # BOTÕES DE MÊS
+    st.write("**Mês:**")
+    df_ano = df[df['ano'] == st.session_state.ano_sel]
     meses_disponiveis = sorted(df_ano['mes'].unique())
-    nomes_meses = [calendar.month_name[m] for m in meses_disponiveis]
-    mes_map = dict(zip(nomes_meses, meses_disponiveis))
+    col_meses = st.columns(6) # 6 botões por linha
+    for i, mes in enumerate(meses_disponiveis):
+        nome_mes = calendar.month_name[mes][:3] # Jan, Fev, Mar
+        if col_meses[i % 6].button(nome_mes, key=f"mes_{mes}", use_container_width=True):
+            st.session_state.mes_sel = mes
 
-    mes_selecionado_nome = st.sidebar.selectbox("Selecione o Mês", nomes_meses)
-    mes_selecionado = mes_map[mes_selecionado_nome]
-    df_mes = df_ano[df_ano['mes'] == mes_selecionado]
+    # BOTÕES DE DIAS
+    st.write("**Dias:**")
+    df_mes = df_ano[df_ano['mes'] == st.session_state.mes_sel]
+    dias_disponiveis = sorted(df_mes['dia'].unique())
 
-    with st.sidebar.expander("📅 Filtrar por Dias Específicos"):
-        dias_do_mes = sorted(df_mes['dia'].unique())
-        dias_selecionados = st.multiselect("Selecione os Dias", options=dias_do_mes, default=dias_do_mes)
-        if dias_selecionados:
-            df_mes = df_mes[df_mes['dia'].isin(dias_selecionados)]
+    col_dias = st.columns(7) # 7 dias por linha
+    for i, dia in enumerate(dias_disponiveis):
+        if col_dias[i % 7].button(f"{dia}", key=f"dia_{dia}", use_container_width=True):
+            if dia in st.session_state.dias_sel:
+                st.session_state.dias_sel.remove(dia) # desmarca
+            else:
+                st.session_state.dias_sel.append(dia) # marca
 
-    loja = st.sidebar.multiselect("Loja", options=sorted(df_mes['loja'].dropna().unique()))
-    categoria = st.sidebar.multiselect("Categoria", options=sorted(df_mes['categoria'].dropna().unique()))
+    if st.button("Limpar Dias"):
+        st.session_state.dias_sel = []
 
-    if loja: df_mes = df_mes[df_mes['loja'].isin(loja)]
-    if categoria: df_mes = df_mes[df_mes['categoria'].isin(categoria)]
-    df = df_mes
+    # APLICAR FILTROS
+    df_filtrado = df_ano[df_ano['mes'] == st.session_state.mes_sel]
+    if st.session_state.dias_sel:
+        df_filtrado = df_filtrado[df_filtrado['dia'].isin(st.session_state.dias_sel)]
+
+    df = df_filtrado
 
     # ===== KPIs =====
     if len(df) > 0:
         faturamento = df['valor_total'].sum()
         ticket_medio = df['valor_total'].mean()
-        melhor_loja = df.groupby('loja')['valor_total'].sum().idxmax()
-        categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax()
-        valor_categoria_top = df.groupby('categoria')['valor_total'].sum().max()
-        produto_top = df.groupby('produto')['valor_total'].sum().idxmax()
-        valor_produto_top = df.groupby('produto')['valor_total'].sum().max()
-
-        ano_anterior = ano_selecionado - 1
-        faturamento_ano_atual = df[df['ano'] == ano_selecionado]['valor_total'].sum()
-        faturamento_ano_anterior = df[df['ano'] == ano_anterior]['valor_total'].sum()
-        crescimento = ((faturamento_ano_atual - faturamento_ano_anterior) / faturamento_ano_anterior) * 100 if faturamento_ano_anterior > 0 else 0
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Faturamento Total", f"R$ {faturamento:,.2f}", f"{crescimento:.1f}% vs {ano_anterior}")
-        col2.metric("Ticket Médio", f"R$ {ticket_medio:,.2f}")
-        col3.metric("Ano em Análise", int(ano_selecionado))
-
-        col4, col5, col6 = st.columns(3)
-        col4.metric("Melhor Loja", melhor_loja)
-        col5.metric("Categoria Top", categoria_top, f"R$ {valor_categoria_top:,.2f}")
-        col6.metric("Produto Top", produto_top, f"R$ {valor_produto_top:,.2f}")
-
-        st.divider()
-
-        st.subheader("📈 Comparativo Anual")
-        faturamento_ano = df.groupby('ano')['valor_total'].sum().reset_index()
-        fig_ano = px.bar(faturamento_ano, x='ano', y='valor_total', text_auto='.2s')
-        fig_ano.update_layout(yaxis_tickprefix='R$ ')
-        st.plotly_chart(fig_ano, use_container_width=True)
-
-        st.subheader("Top 10 Produtos Mais Vendidos")
-        top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
-        fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h', text_auto='.2s')
-        fig3.update_layout(yaxis={'categoryorder':'total ascending'}, height=500)
-        fig3.update_traces(texttemplate='R$ %{x:,.2f}')
-        fig3.update_xaxes(tickprefix='R$ ')
-        st.plotly_chart(fig3, use_container_width=True) # <-- PARENTESE FECHADO AQUI
-
-        col_graf1, col_graf2 = st.columns(2)
-        with col_graf1:
-            st.subheader("Vendas por Categoria")
-            fig1 = px.bar(df.groupby('categoria')['valor_total'].sum().reset_index(), x='categoria', y='valor_total', text_auto='.2s')
-            fig1.update_layout(xaxis_tickangle=-45)
-            fig1.update_traces(texttemplate='R$ %{y:,.2f}')
-            fig1.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig1, use_container_width=True)
-
-        with col_graf2:
-            st.subheader("Faturamento ao Longo do Tempo")
-            fig2 = px.line(df.groupby('data')['valor_total'].sum().reset_index(), x='data', y='valor_total')
-            fig2.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig2, use_container_width=True)
-
-    else:
-        st.warning("Nenhum dado encontrado com os filtros selecionados")
-
-else:
-    st.info("👆 Faça upload do arquivo Excel para começar")
+        melhor_loja = df.groupby('loja')['valor_total'].sum().idxmax() if len(df['loja'].unique()) > 0 else "-"
+        categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax() if len(df['categoria'].unique()) > 0 else "-"
+        valor_categoria_top = df.groupby('categoria')['valor_total'].sum().max() if len(df['categoria'].unique()) > 0 else 0
