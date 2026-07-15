@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -35,12 +36,10 @@ if uploaded_file:
     # ===== FILTROS COM BOTÕES =====
     st.sidebar.header("🔍 Filtros")
 
-    # FILTRO 1: ANO
     anos_disponiveis = sorted(df['ano'].unique())
     ano_selecionado = st.sidebar.selectbox("Selecione o Ano", anos_disponiveis)
     df_ano = df[df['ano'] == ano_selecionado]
 
-    # FILTRO 2: MÊS COM BOTÃO
     meses_disponiveis = sorted(df_ano['mes'].unique())
     nomes_meses = [calendar.month_name[m] for m in meses_disponiveis]
     mes_map = dict(zip(nomes_meses, meses_disponiveis))
@@ -49,25 +48,18 @@ if uploaded_file:
     mes_selecionado = mes_map[mes_selecionado_nome]
     df_mes = df_ano[df_ano['mes'] == mes_selecionado]
 
-    # FILTRO 3: DIAS DO MÊS COM EXPANDER
     with st.sidebar.expander("📅 Filtrar por Dias Específicos"):
         dias_do_mes = sorted(df_mes['dia'].unique())
-        dias_selecionados = st.multiselect(
-            "Selecione os Dias",
-            options=dias_do_mes,
-            default=dias_do_mes # vem marcado todos
-        )
+        dias_selecionados = st.multiselect("Selecione os Dias", options=dias_do_mes, default=dias_do_mes)
         if dias_selecionados:
             df_mes = df_mes[df_mes['dia'].isin(dias_selecionados)]
 
-    # OUTROS FILTROS
     loja = st.sidebar.multiselect("Loja", options=sorted(df_mes['loja'].dropna().unique()))
     categoria = st.sidebar.multiselect("Categoria", options=sorted(df_mes['categoria'].dropna().unique()))
 
     if loja: df_mes = df_mes[df_mes['loja'].isin(loja)]
     if categoria: df_mes = df_mes[df_mes['categoria'].isin(categoria)]
-
-    df = df_mes # df final já filtrado
+    df = df_mes
 
     # ===== KPIs =====
     if len(df) > 0:
@@ -96,18 +88,37 @@ if uploaded_file:
 
         st.divider()
 
-        # ===== COMPARAÇÃO ANO ANTERIOR =====
         st.subheader("📈 Comparativo Anual")
         faturamento_ano = df.groupby('ano')['valor_total'].sum().reset_index()
         fig_ano = px.bar(faturamento_ano, x='ano', y='valor_total', text_auto='.2s')
         fig_ano.update_layout(yaxis_tickprefix='R$ ')
         st.plotly_chart(fig_ano, use_container_width=True)
 
-        # ===== GRAFICOS =====
         st.subheader("Top 10 Produtos Mais Vendidos")
         top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
         fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h', text_auto='.2s')
         fig3.update_layout(yaxis={'categoryorder':'total ascending'}, height=500)
         fig3.update_traces(texttemplate='R$ %{x:,.2f}')
         fig3.update_xaxes(tickprefix='R$ ')
-        st.plotly_chart(fig3,
+        st.plotly_chart(fig3, use_container_width=True) # <-- PARENTESE FECHADO AQUI
+
+        col_graf1, col_graf2 = st.columns(2)
+        with col_graf1:
+            st.subheader("Vendas por Categoria")
+            fig1 = px.bar(df.groupby('categoria')['valor_total'].sum().reset_index(), x='categoria', y='valor_total', text_auto='.2s')
+            fig1.update_layout(xaxis_tickangle=-45)
+            fig1.update_traces(texttemplate='R$ %{y:,.2f}')
+            fig1.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig1, use_container_width=True)
+
+        with col_graf2:
+            st.subheader("Faturamento ao Longo do Tempo")
+            fig2 = px.line(df.groupby('data')['valor_total'].sum().reset_index(), x='data', y='valor_total')
+            fig2.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig2, use_container_width=True)
+
+    else:
+        st.warning("Nenhum dado encontrado com os filtros selecionados")
+
+else:
+    st.info("👆 Faça upload do arquivo Excel para começar")
