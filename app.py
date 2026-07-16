@@ -3,6 +3,10 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import calendar
+from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+import base64
 
 st.set_page_config(page_title="Dashboard Gerencial", layout="wide")
 
@@ -11,6 +15,7 @@ st.markdown("""
 .kpi-box { background-color: #262730; border-left: 4px solid #00FF7F; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; }
 .kpi-label { font-size: 11px; color: #AAAAAA; margin-bottom: 2px; text-transform: uppercase; }
 .kpi-value { font-size: 16px; font-weight: bold; color: white; }
+.alerta { background-color: #FF4444; padding: 10px; border-radius: 6px; color: white; font-weight: bold; }
 h3 { font-size: 18px!important; }
 </style>
 """, unsafe_allow_html=True)
@@ -18,6 +23,32 @@ h3 { font-size: 18px!important; }
 st.title("📊 Dashboard Gerencial")
 
 uploaded_file = st.file_uploader("Carregue seu Excel aqui", type=["xlsx"])
+
+def to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Performance')
+    return output.getvalue()
+
+def create_pdf(faturamento, atingimento, melhor_loja, df_loja):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(30, height - 50, "Relatório Gerencial")
+    c.setFont("Helvetica", 10)
+    c.drawString(30, height - 70, f"Faturamento: R$ {faturamento:,.0f}")
+    c.drawString(30, height - 85, f"Atingimento Geral: {atingimento:.1f}%")
+    c.drawString(30, height - 100, f"Melhor Loja: {melhor_loja}")
+    y = height - 130
+    c.drawString(30, y, "Performance por Loja:")
+    y -= 20
+    for index, row in df_loja.iterrows():
+        c.drawString(30, y, f"{row['loja']}: R$ {row['valor_total']:,.0f} | Meta: R$ {row['Meta']:,.0f} | {row['Atingimento %']}%")
+        y -= 15
+        if y < 50: break
+    c.save()
+    return buffer.getvalue()
 
 if uploaded_file:
     df = pd.read_excel(uploaded_file, sheet_name=0, header=0)
@@ -59,11 +90,11 @@ if uploaded_file:
     meta_geral = st.sidebar.number_input("Meta Geral R$", value=500000.0, step=10000.0)
 
     st.sidebar.write("**Meta por Loja**")
-    metas_loja_lista = [] # AGORA É LISTA
+    metas_loja_lista = []
     valor_padrao = meta_geral / len(lojas_disponiveis) if len(lojas_disponiveis) > 0 else 0
     for i, loja in enumerate(lojas_disponiveis):
         meta = st.sidebar.number_input(loja, value=valor_padrao, step=5000.0, key=f"meta_{i}")
-        metas_loja_lista.append({'loja': loja, 'Meta': meta}) # GUARDA EM LISTA
+        metas_loja_lista.append({'loja': loja, 'Meta': meta})
 
     if len(df) > 0:
         faturamento = df['valor_total'].sum()
@@ -87,55 +118,4 @@ if uploaded_file:
             st.markdown(f"<div class='kpi-box'><div class='kpi-label'>💰 Faturamento</div><div class='kpi-value'>R$ {faturamento:,.0f}</div></div>", unsafe_allow_html=True)
             st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🎯 Meta Geral</div><div class='kpi-value'>R$ {meta_geral:,.0f}</div></div>", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>📈 Atingimento</div><div class='kpi-value'>{atingimento_geral:.1f}%</div></div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🧾 Ticket Médio</div><div class='kpi-value'>R$ {ticket_medio:.2f}</div></div>", unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🛒 Qtd. Vendas</div><div class='kpi-value'>{qtd_vendas:,}</div></div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🏆 Melhor Loja</div><div class='kpi-value'>{melhor_loja}</div></div>", unsafe_allow_html=True)
-
-        st.markdown(f"<div class='kpi-box'><div class='kpi-label'>⭐ Categoria Top</div><div class='kpi-value'>{categoria_top}</div></div>", unsafe_allow_html=True)
-        st.progress(min(atingimento_geral/100, 1.0))
-        st.divider()
-
-        st.subheader("📊 Performance por Loja")
-        df_loja = df.groupby('loja')['valor_total'].sum().reset_index()
-
-        df_metas = pd.DataFrame(metas_loja_lista) # CONVERTE LISTA PRA DF
-        df_loja = df_loja.merge(df_metas, on='loja', how='left') # FAZ MERGE EM VEZ DE MAP
-
-        df_loja['Atingimento %'] = (df_loja['valor_total'] / df_loja['Meta'] * 100).round(1)
-        df_loja['Status'] = df_loja['Atingimento %'].apply(lambda x: '🟢' if x >= 100 else '🟡' if x >= 80 else '🔴')
-        df_loja = df_loja.sort_values('Atingimento %', ascending=False)
-
-        col_tab, col_graf = st.columns([1, 1.5])
-        with col_tab:
-            df_show = df_loja.copy()
-            df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: f"R$ {x:,.0f}")
-            df_show['Meta'] = df_show['Meta'].apply(lambda x: f"R$ {x:,.0f}")
-            st.dataframe(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']], use_container_width=True, hide_index=True, height=400)
-
-        with col_graf:
-            fig_meta_loja = go.Figure()
-            fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['Meta'], name='Meta', marker_color='gray', opacity=0.5))
-            fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['valor_total'], name='Realizado', marker_color='#00FF7F'))
-            fig_meta_loja.update_layout(title="Meta vs Realizado por Loja", barmode='group', yaxis_tickprefix='R$ ', height=400)
-            st.plotly_chart(fig_meta_loja, use_container_width=True)
-
-        st.divider()
-        tab1, tab2 = st.tabs(["📈 Faturamento por Dia", "📦 Top 10 Produtos"])
-        with tab1:
-            fat_dia = df.groupby('dia')['valor_total'].sum().reset_index()
-            fig_dia = px.line(fat_dia, x='dia', y='valor_total', title="Faturamento por Dia", markers=True)
-            fig_dia.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig_dia, use_container_width=True)
-        with tab2:
-            top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
-            top_produtos['produto'] = top_produtos['produto'].str.wrap(18)
-            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
-            fig3.update_layout(height=400, margin=dict(l=130))
-            fig3.update_traces(texttemplate='R$ %{x:,.0f}', textposition='outside')
-            st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.warning("Nenhum dado encontrado com os filtros selecionados.")
-else:
-    st.info("👆 Faça upload do arquivo Excel")
+            st.markdown(f"
