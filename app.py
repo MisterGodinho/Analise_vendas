@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import calendar
 from io import BytesIO
 
@@ -73,23 +72,22 @@ if uploaded_file:
     df = df_temp[df_temp['categoria'].isin(categorias)]
 
     with st.sidebar.expander("Ver selecao atual"):
-        st.write("Anos: " + str(len(anos)) + " selecionado(s)")
-        st.write("Meses: " + str(len(meses)) + " selecionado(s)")
-        st.write("Dias: " + str(len(dias)) + " selecionado(s)")
-        st.write("Lojas: " + str(len(lojas)) + " selecionada(s)")
-        st.write("Categorias: " + str(len(categorias)) + " selecionada(s)")
+        st.write("Anos: " + str(len(anos)))
+        st.write("Meses: " + str(len(meses)))
+        st.write("Dias: " + str(len(dias)))
+        st.write("Lojas: " + str(len(lojas)))
+        st.write("Categorias: " + str(len(categorias)))
 
     st.sidebar.divider()
     mostrar_metas = st.sidebar.checkbox("Mostrar Metas", value=True)
 
     meta_geral = 0
     metas_loja_lista = []
-    lojas_com_meta = []
     if mostrar_metas:
         st.sidebar.subheader("Metas")
         meta_geral = st.sidebar.number_input("Meta Geral R$", value=500000.0, step=10000.0)
 
-        st.sidebar.write("Meta por Loja - Marque as que quer acompanhar")
+        st.sidebar.write("Meta por Loja")
         valor_padrao = meta_geral / len(lojas_disponiveis) if len(lojas_disponiveis) > 0 else 0
 
         for i, loja in enumerate(lojas_disponiveis):
@@ -101,7 +99,6 @@ if uploaded_file:
 
             if marcar:
                 metas_loja_lista.append({'loja': loja, 'Meta': meta})
-                lojas_com_meta.append(loja)
 
     if len(df) > 0:
         faturamento = df['valor_total'].sum()
@@ -122,10 +119,10 @@ if uploaded_file:
             periodo = str(int(dias[0])) + " de " + periodo
 
         if mostrar_metas:
-            if atingimento_geral >= 100: cor, status = "VERDE", "Meta Batida"
-            elif atingimento_geral >= 80: cor, status = "AMARELO", "Atencao"
-            else: cor, status = "VERMELHO", "Abaixo da Meta"
-            st.markdown("<h3>" + cor + " " + status + " - " + periodo + "</h3>", unsafe_allow_html=True) # CORRIGIDO AQUI
+            if atingimento_geral >= 100: status = "Meta Batida"
+            elif atingimento_geral >= 80: status = "Atencao"
+            else: status = "Abaixo da Meta"
+            st.markdown("<h3>" + status + " - " + periodo + "</h3>", unsafe_allow_html=True)
         else:
             st.markdown("<h3>Analise - " + periodo + "</h3>", unsafe_allow_html=True)
 
@@ -155,29 +152,24 @@ if uploaded_file:
             df_metas = pd.DataFrame(metas_loja_lista)
             df_loja = df_loja.merge(df_metas, on='loja', how='left')
             df_loja['Atingimento %'] = (df_loja['valor_total'] / df_loja['Meta'] * 100).round(1)
-            df_loja['Status'] = df_loja['Atingimento %'].apply(lambda x: 'OK' if x >= 100 else 'ATENCAO' if x >= 80 else 'CRITICO')
             df_loja = df_loja.sort_values('Atingimento %', ascending=False)
 
             lojas_criticas = df_loja[df_loja['Atingimento %'] < 80]
             if not lojas_criticas.empty:
                 st.markdown("<div class='alerta'>ALERTA: Lojas abaixo de 80% da meta</div>", unsafe_allow_html=True)
-                for _, row in lojas_criticas.iterrows():
-                    st.warning(row['loja'] + ": " + str(row['Atingimento %']) + "% da meta")
 
             col_tab, col_graf = st.columns([1, 1.5])
             with col_tab:
                 df_show = df_loja.copy()
                 df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: "R$ {:,.0f}".format(x))
                 df_show['Meta'] = df_show['Meta'].apply(lambda x: "R$ {:,.0f}".format(x) if pd.notna(x) else "-")
-                st.dataframe(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']], use_container_width=True, hide_index=True, height=400)
-                excel_data = to_excel(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']])
+                st.dataframe(df_show[['loja', 'Faturamento', 'Meta', 'Atingimento %']], use_container_width=True, hide_index=True, height=400)
+                excel_data = to_excel(df_show[['loja', 'Faturamento', 'Meta', 'Atingimento %']])
                 st.download_button(label="Baixar Tabela Excel", data=excel_data, file_name="performance_lojas.xlsx")
 
             with col_graf:
-                fig_meta_loja = go.Figure()
-                fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['Meta'], name='Meta', marker_color='gray', opacity=0.5))
-                fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['valor_total'], name='Realizado', marker_color='#00FF7F'))
-                fig_meta_loja.update_layout(title="Meta vs Realizado por Loja", barmode='group', yaxis_tickprefix='R$ ', height=400)
+                fig_meta_loja = px.bar(df_loja, x='loja', y=['Meta', 'valor_total'], title="Meta vs Realizado", barmode='group')
+                fig_meta_loja.update_yaxes(tickprefix='R$ ')
                 st.plotly_chart(fig_meta_loja, use_container_width=True)
         else:
             df_loja = df_loja.sort_values('valor_total', ascending=False)
@@ -192,24 +184,18 @@ if uploaded_file:
         tab1, tab2 = st.tabs(["Faturamento por Dia", "Top 10 Produtos"])
         with tab1:
             fat_dia = df.groupby('dia')['valor_total'].sum().reset_index()
-            fig_dia = px.line(fat_dia, x='dia', y='valor_total', title="Faturamento por Dia", markers=True, color_discrete_sequence=['#00FF7F'])
+            fig_dia = px.line(fat_dia, x='dia', y='valor_total', title="Faturamento por Dia", markers=True)
             fig_dia.update_yaxes(tickprefix='R$ ')
             st.plotly_chart(fig_dia, use_container_width=True)
         with tab2:
             top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index().sort_values('valor_total', ascending=True)
             top_produtos['produto'] = top_produtos['produto'].str.wrap(22)
 
-            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h', title="Top 10 Produtos - Maior Venda", text='valor_total')
-            fig3.update_layout(
-                height=450,
-                margin=dict(l=160, r=80, t=40, b=40),
-                xaxis_title="R$",
-                yaxis_title=""
-            )
-            fig3.update_traces(
-                texttemplate='R$ %{x:,.0f}',
-                textposition='outside',
-                cliponaxis=False
-            )
-            fig3.update_xaxes(automargin=True)
+            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h', title="Top 10 Produtos", text='valor_total')
+            fig3.update_layout(height=450, margin=dict(l=160, r=80, t=40, b=40))
+            fig3.update_traces(texttemplate='R$ %{x:,.0f}', textposition='outside', cliponaxis=False)
             st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.error("Nenhum dado encontrado com os filtros selecionados.")
+else:
+    st.info("Faca upload do arquivo Excel")
