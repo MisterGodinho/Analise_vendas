@@ -63,29 +63,28 @@ if uploaded_file:
     df = df_filtro
 
     st.sidebar.divider()
-
-    # BOTÃO NOVO: MOSTRAR/OCULTAR METAS
     mostrar_metas = st.sidebar.checkbox("🎯 Mostrar Metas", value=True)
 
+    meta_geral = 0
+    metas_loja_lista = []
     if mostrar_metas:
         st.sidebar.subheader("🎯 Metas")
         meta_geral = st.sidebar.number_input("Meta Geral R$", value=500000.0, step=10000.0)
-
         st.sidebar.write("**Meta por Loja**")
-        metas_loja_lista = []
         valor_padrao = meta_geral / len(lojas_disponiveis) if len(lojas_disponiveis) > 0 else 0
         for i, loja in enumerate(lojas_disponiveis):
             meta = st.sidebar.number_input(loja, value=valor_padrao, step=5000.0, key="meta_{}".format(i))
             metas_loja_lista.append({'loja': loja, 'Meta': meta})
-    else:
-        meta_geral = 1 # valor fake pra não quebrar a conta
-        metas_loja_lista = []
 
     if len(df) > 0:
         faturamento = df['valor_total'].sum()
         ticket_medio = df['valor_total'].mean()
         qtd_vendas = df['id_pedido'].nunique()
-        atingimento_geral = (faturamento / meta_geral * 100) if mostrar_metas and meta_geral > 0 else 0
+
+        # CORRIGIDO: Só calcula atingimento se mostrar_metas for True
+        atingimento_geral = 0
+        if mostrar_metas and meta_geral > 0:
+            atingimento_geral = (faturamento / meta_geral * 100)
 
         melhor_loja = df.groupby('loja')['valor_total'].sum().idxmax()
         categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax()
@@ -94,9 +93,4 @@ if uploaded_file:
         if len(dias) == 1: periodo = "{} de {}".format(int(dias[0]), periodo)
 
         if mostrar_metas:
-            if atingimento_geral >= 100: cor, status = "🟢", "Meta Batida"
-            elif atingimento_geral >= 80: cor, status = "🟡", "Atenção"
-            else: cor, status = "🔴", "Abaixo da Meta"
-            st.markdown('<h3>{} {} - {}</h3>'.format(cor, status, periodo), unsafe_allow_html=True)
-
-        col1, col2, col3
+            if atingimento_geral >= 100: cor, status = "🟢", "Meta
