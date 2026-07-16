@@ -44,23 +44,32 @@ if uploaded_file:
     df['dia'] = df['data'].dt.day.astype(int)
 
     st.sidebar.header("🔍 Filtros")
-    anos = st.sidebar.multiselect("Ano", sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
+
+    # 1. JÁ VEM TUDO SELECIONADO
+    anos_disponiveis = sorted(df['ano'].unique())
+    anos = st.sidebar.multiselect("Ano", anos_disponiveis, default=anos_disponiveis) # default = todos
+
     df_filtro = df[df['ano'].isin(anos)]
 
     meses_disponiveis = sorted(df_filtro['mes'].unique())
-    meses = st.sidebar.multiselect("Mês", meses_disponiveis, format_func=lambda x: calendar.month_name[x], default=meses_disponiveis)
+    meses = st.sidebar.multiselect("Mês", meses_disponiveis, format_func=lambda x: calendar.month_name[x], default=meses_disponiveis) # default = todos
     df_filtro = df_filtro[df_filtro['mes'].isin(meses)]
 
     dias_disponiveis = sorted(df_filtro['dia'].unique())
-    dias = st.sidebar.multiselect("Dia", dias_disponiveis, default=dias_disponiveis)
-    if len(dias) == 0: dias = dias_disponiveis
+    dias = st.sidebar.multiselect("Dia", dias_disponiveis, default=dias_disponiveis) # default = todos
     df_filtro = df_filtro[df_filtro['dia'].isin(dias)]
 
     lojas_disponiveis = sorted(df_filtro['loja'].unique())
-    lojas = st.sidebar.multiselect("Loja", lojas_disponiveis, default=lojas_disponiveis)
-    if len(lojas) == 0: lojas = lojas_disponiveis
+    lojas = st.sidebar.multiselect("Loja", lojas_disponiveis, default=lojas_disponiveis) # default = todos
     df_filtro = df_filtro[df_filtro['loja'].isin(lojas)]
     df = df_filtro
+
+    # 2. RESUMO DO QUE ESTÁ SELECIONADO - PRA NÃO FICAR SÓ OS "X"
+    with st.sidebar.expander("👁️ Ver seleção atual"):
+        st.write(f"**Anos:** {len(anos)} selecionado(s)")
+        st.write(f"**Meses:** {len(meses)} selecionado(s)")
+        st.write(f"**Dias:** {len(dias)} selecionado(s)")
+        st.write(f"**Lojas:** {len(lojas)} selecionada(s)")
 
     st.sidebar.divider()
     mostrar_metas = st.sidebar.checkbox("🎯 Mostrar Metas", value=True)
@@ -88,7 +97,7 @@ if uploaded_file:
         melhor_loja = df.groupby('loja')['valor_total'].sum().idxmax()
         categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax()
 
-        periodo = f"{calendar.month_name[meses[0]]}/{anos[0]}"
+        periodo = f"{calendar.month_name[meses[0]]}/{anos[0]}" if len(meses) == 1 and len(anos) == 1 else "Período Selecionado"
         if len(dias) == 1: periodo = f"{int(dias[0])} de {periodo}"
 
         if mostrar_metas:
@@ -124,55 +133,4 @@ if uploaded_file:
         if mostrar_metas:
             df_metas = pd.DataFrame(metas_loja_lista)
             df_loja = df_loja.merge(df_metas, on='loja', how='left')
-            df_loja['Atingimento %'] = (df_loja['valor_total'] / df_loja['Meta'] * 100).round(1)
-            df_loja['Status'] = df_loja['Atingimento %'].apply(lambda x: '🟢' if x >= 100 else '🟡' if x >= 80 else '🔴')
-            df_loja = df_loja.sort_values('Atingimento %', ascending=False)
-
-            lojas_criticas = df_loja[df_loja['Atingimento %'] < 80]
-            if not lojas_criticas.empty:
-                st.markdown("""<div class='alerta'>⚠️ ALERTA: Lojas abaixo de 80% da meta</div>""", unsafe_allow_html=True)
-                for _, row in lojas_criticas.iterrows():
-                    st.warning(f"{row['loja']}: {row['Atingimento %']}% da meta")
-
-            col_tab, col_graf = st.columns([1, 1.5])
-            with col_tab:
-                df_show = df_loja.copy()
-                df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: f"R$ {x:,.0f}")
-                df_show['Meta'] = df_show['Meta'].apply(lambda x: f"R$ {x:,.0f}")
-                st.dataframe(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']], use_container_width=True, hide_index=True, height=400)
-                excel_data = to_excel(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']])
-                st.download_button(label="📥 Baixar Tabela Excel", data=excel_data, file_name="performance_lojas.xlsx")
-
-            with col_graf:
-                fig_meta_loja = go.Figure()
-                fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['Meta'], name='Meta', marker_color='gray', opacity=0.5))
-                fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['valor_total'], name='Realizado', marker_color='#00FF7F'))
-                fig_meta_loja.update_layout(title="Meta vs Realizado por Loja", barmode='group', yaxis_tickprefix='R$ ', height=400)
-                st.plotly_chart(fig_meta_loja, use_container_width=True)
-        else:
-            df_loja = df_loja.sort_values('valor_total', ascending=False)
-            df_show = df_loja.copy()
-            df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: f"R$ {x:,.0f}")
-            st.dataframe(df_show[['loja', 'Faturamento']], use_container_width=True, hide_index=True, height=400)
-            fig_simples = px.bar(df_loja, x='loja', y='valor_total', title="Faturamento por Loja")
-            fig_simples.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig_simples, use_container_width=True)
-
-        st.divider()
-        tab1, tab2 = st.tabs(["📈 Faturamento por Dia", "📦 Top 10 Produtos"])
-        with tab1:
-            fat_dia = df.groupby('dia')['valor_total'].sum().reset_index()
-            fig_dia = px.line(fat_dia, x='dia', y='valor_total', title="Faturamento por Dia", markers=True, color_discrete_sequence=['#00FF7F'])
-            fig_dia.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig_dia, use_container_width=True)
-        with tab2:
-            top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
-            top_produtos['produto'] = top_produtos['produto'].str.wrap(18)
-            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
-            fig3.update_layout(height=400, margin=dict(l=130))
-            fig3.update_traces(texttemplate='R$ %{x:,.0f}', textposition='outside')
-            st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.warning("Nenhum dado encontrado com os filtros selecionados.")
-else:
-    st.info("👆 Faça upload do arquivo Excel")
+            df_loja['Atingimento %']
