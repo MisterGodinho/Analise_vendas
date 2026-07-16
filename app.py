@@ -5,7 +5,7 @@ import zipfile
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
 st.title("Analise do Negocio BSB")
-st.caption("Performance de Vendas | 2025-2026") # AQUI
+st.caption("Performance de Vendas | 2025-2026")
 
 uploaded_files = st.file_uploader("1. Selecione 2025.zip e 2026.zip", type=['zip'], accept_multiple_files=True)
 
@@ -41,55 +41,5 @@ if uploaded_files and len(uploaded_files) >= 2:
     df['id'] = df.index.astype(str)
     
     st.sidebar.header("Filtros")
-    anos = st.sidebar.multiselect("Ano", sorted(df['ano'].unique()), sorted(df['ano'].unique()))
-    df_f = df[df['ano'].isin(anos)]
-    
-    lojas = st.sidebar.multiselect("Loja", sorted(df_f['loja'].unique()), sorted(df_f['loja'].unique()))
-    df_f = df_f[df_f['loja'].isin(lojas)]
-    
-    cats = st.sidebar.multiselect("Categoria", sorted(df_f['categoria'].unique()), sorted(df_f['categoria'].unique()))
-    df_f = df_f[df_f['categoria'].isin(cats)]
-    
-    st.sidebar.divider()
-    st.sidebar.header("Metas")
-    
-    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 1000000.0)
-    
-    st.sidebar.subheader("Meta por Loja")
-    lojas_meta = st.sidebar.multiselect("Selecione lojas para meta", options=sorted(df['loja'].unique()))
-    
-    dict_meta_loja = {}
-    for loja in lojas_meta:
-        dict_meta_loja = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 10000000.0, 100000.0, key=loja)
-    
-    st.sidebar.metric("Total registros", f"{len(df_f):,}")
-    df = df_f
-    
-    if len(df) > 0:
-        st.divider()
-        c1, c2, c3, c4 = st.columns(4)
-        fat = df['valor'].sum()
-        c1.metric("Faturamento", f"R$ {fat:,.0f}")
-        c2.metric("Ticket Medio", f"R$ {df['valor'].mean():,.2f}")
-        c3.metric("Qtd Itens", f"{len(df):,}")
-        c4.metric("Qtd Pedidos", f"{df['id'].nunique():,}")
-        
-        st.divider()
-        st.subheader("Acompanhamento de Meta")
-        
-        ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
-        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
-        st.progress(min(ating_geral/100, 1.0))
-        
-        if len(dict_meta_loja) > 0:
-            st.subheader("Performance por Loja com Meta")
-            dfm = df.groupby('loja')['valor'].sum().reset_index()
-            dfm['Meta'] = dfm['loja'].map(dict_meta_loja).fillna(0)
-            dfm['% Ating'] = (dfm['valor'] / dfm['Meta']) * 100
-            dfm = dfm[dfm['Meta'] > 0].sort_values('% Ating', ascending=False)
-            st.dataframe(dfm.style.format({'valor':'R$ {:,.2f}','Meta':'R$ {:,.2f}','% Ating':'{:.2f}%'}), use_container_width=True, hide_index=True)
-        
-        if len(df['ano'].unique()) > 1:
-            st.divider()
-            st.subheader("Comparativo Ano a Ano")
-            dfa = df.groupby('ano')['valor'].sum
+    # IMPORTANTE: Deixe os 2 anos marcados pra aparecer o comparativo
+    anos
