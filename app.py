@@ -44,40 +44,4 @@ if uploaded_file:
     df['data'] = pd.to_datetime(df['data'], errors='coerce')
     df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce')
     df['categoria'] = df['categoria'].fillna('Sem Categoria')
-    df = df.dropna(subset=['data', 'valor_total', 'loja', 'produto'])
-
-    df['ano'] = df['data'].dt.year
-    df['mes'] = df['data'].dt.month
-    df['dia'] = df['data'].dt.day.astype(int)
-
-    st.sidebar.header("🔍 Filtros")
-
-    anos_disponiveis = sorted(df['ano'].unique())
-    anos = st.sidebar.multiselect("Ano", anos_disponiveis, default=anos_disponiveis)
-    df_temp = df[df['ano'].isin(anos)]
-
-    meses_disponiveis = sorted(df_temp['mes'].unique())
-    meses = st.sidebar.multiselect("Mês", meses_disponiveis, format_func=lambda x: calendar.month_name[x], default=meses_disponiveis)
-    df_temp = df_temp[df_temp['mes'].isin(meses)]
-
-    dias_disponiveis = sorted(df_temp['dia'].unique())
-    dias = st.sidebar.multiselect("Dia", dias_disponiveis, default=dias_disponiveis)
-    df_temp = df_temp[df_temp['dia'].isin(dias)]
-
-    lojas_disponiveis = sorted(df_temp['loja'].unique())
-    lojas = st.sidebar.multiselect("Loja", lojas_disponiveis, default=lojas_disponiveis)
-    df_temp = df_temp[df_temp['loja'].isin(lojas)]
-
-    categorias_disponiveis = sorted(df_temp['categoria'].unique())
-    categorias = st.sidebar.multiselect("Categoria", categorias_disponiveis, default=categorias_disponiveis)
-    df = df_temp[df_temp['categoria'].isin(categorias)]
-
-    with st.sidebar.expander("👁️ Ver seleção atual"):
-        st.write("**Anos:** " + str(len(anos)) + " selecionado(s)")
-        st.write("**Meses:** " + str(len(meses)) + " selecionado(s)")
-        st.write("**Dias:** " + str(len(dias)) + " selecionado(s)")
-        st.write("**Lojas:** " + str(len(lojas)) + " selecionada(s)")
-        st.write("**Categorias:** " + str(len(categorias)) + " selecionada(s)")
-
-    st.sidebar.divider()
-    mostrar_m
+    df = df.dropna(subset=['data', 'valor_total', 'loja', '
