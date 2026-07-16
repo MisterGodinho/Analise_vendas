@@ -34,26 +34,38 @@ if uploaded_file:
     # ===== FILTROS NA SIDEBAR =====
     st.sidebar.header("🔍 Filtros")
 
-    # ANO - BOTÃO RADIO PEQUENO
+    # ANO - MULTISELECT PRA SELECIONAR 2 ANOS
     anos_disponiveis = sorted(df['ano'].unique())
-    ano_selecionado = st.sidebar.radio("Ano", anos_disponiveis, horizontal=True)
+    anos_selecionados = st.sidebar.multiselect(
+        "Ano - Selecione 1 ou 2 para comparar",
+        anos_disponiveis,
+        default=[anos_disponiveis[-1]] # já vem com o último ano marcado
+    )
 
-    df_ano = df[df['ano'] == ano_selecionado]
+    if not anos_selecionados:
+        st.warning("Selecione pelo menos 1 ano")
+        st.stop()
 
-    # MÊS - BOTÃO RADIO PEQUENO
+    df_ano = df[df['ano'].isin(anos_selecionados)]
+
+    # MÊS - MULTISELECT TAMBÉM
     meses_disponiveis = sorted(df_ano['mes'].unique())
-    nomes_meses = [calendar.month_name[m][:3] for m in meses_disponiveis] # Jan, Fev, Mar
-    mes_selecionado_idx = st.sidebar.radio("Mês", range(len(meses_disponiveis)),
-                                          format_func=lambda x: nomes_meses[x], horizontal=True)
-    mes_selecionado = meses_disponiveis[mes_selecionado_idx]
+    nomes_meses = [calendar.month_name[m] for m in meses_disponiveis]
+    mes_map = dict(zip(nomes_meses, meses_disponiveis))
 
-    df_mes = df_ano[df_ano['mes'] == mes_selecionado]
+    meses_selecionados_nome = st.sidebar.multiselect(
+        "Mês",
+        nomes_meses,
+        default=[nomes_meses[-1]]
+    )
+    meses_selecionados = [mes_map[m] for m in meses_selecionados_nome]
 
-    # DIAS - CHECKBOX EM COLUNAS PEQUENAS
+    df_mes = df_ano[df_ano['mes'].isin(meses_selecionados)]
+
+    # DIAS - CHECKBOX
     st.sidebar.write("**Dias:**")
     dias_disponiveis = sorted(df_mes['dia'].unique())
-    col_dias = st.sidebar.columns(7) # 7 colunas = 1 semana
-
+    col_dias = st.sidebar.columns(7)
     dias_selecionados = []
     for i, dia in enumerate(dias_disponiveis):
         if col_dias[i % 7].checkbox(str(dia), key=f"dia_{dia}"):
@@ -62,74 +74,50 @@ if uploaded_file:
     if dias_selecionados:
         df_mes = df_mes[df_mes['dia'].isin(dias_selecionados)]
 
-    # OUTROS FILTROS
     loja = st.sidebar.multiselect("Loja", options=sorted(df_mes['loja'].dropna().unique()))
     categoria = st.sidebar.multiselect("Categoria", options=sorted(df_mes['categoria'].dropna().unique()))
 
     if loja: df_mes = df_mes[df_mes['loja'].isin(loja)]
     if categoria: df_mes = df_mes[df_mes['categoria'].isin(categoria)]
-
     df = df_mes
 
     # ===== KPIs =====
     if len(df) > 0:
-        faturamento = df['valor_total'].sum()
-        ticket_medio = df['valor_total'].mean()
-        melhor_loja = df.groupby('loja')['valor_total'].sum().idxmax() if len(df['loja'].unique()) > 0 else "-"
-        categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax() if len(df['categoria'].unique()) > 0 else "-"
-        valor_categoria_top = df.groupby('categoria')['valor_total'].sum().max() if len(df['categoria'].unique()) > 0 else 0
-        produto_top = df.groupby('produto')['valor_total'].sum().idxmax() if len(df['produto'].unique()) > 0 else "-"
-        valor_produto_top = df.groupby('produto')['valor_total'].sum().max() if len(df['produto'].unique()) > 0 else 0
+        st.subheader(f"📅 Comparando: {', '.join(meses_selecionados_nome)} / {', '.join(map(str, anos_selecionados))}")
 
-        ano_anterior = ano_selecionado - 1
-        faturamento_ano_atual = df[df['ano'] == ano_selecionado]['valor_total'].sum()
-        faturamento_ano_anterior = df[df['ano'] == ano_anterior]['valor_total'].sum()
-        crescimento = ((faturamento_ano_atual - faturamento_ano_anterior) / faturamento_ano_anterior) * 100 if faturamento_ano_anterior > 0 else 0
+        # TABELA DE COMPARAÇÃO POR ANO
+        tabela_ano = df.groupby('ano')['valor_total'].agg(['sum', 'mean', 'count']).reset_index()
+        tabela_ano.columns = ['Ano', 'Faturamento', 'Ticket Médio', 'Qtd Vendas']
+        tabela_ano['Faturamento'] = tabela_ano['Faturamento'].apply(lambda x: f"R$ {x:,.2f}")
+        tabela_ano['Ticket Médio'] = tabela_ano['Ticket Médio'].apply(lambda x: f"R$ {x:,.2f}")
 
-        st.subheader(f"📅 {calendar.month_name[mes_selecionado]} / {ano_selecionado}")
+        st.dataframe(tabela_ano, use_container_width=True, hide_index=True)
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Faturamento Total", f"R$ {faturamento:,.2f}", f"{crescimento:.1f}% vs {ano_anterior}")
-        col2.metric("Ticket Médio", f"R$ {ticket_medio:,.2f}")
-        col3.metric("Registros", f"{len(df):,}")
+        # GRÁFICO COMPARATIVO POR ANO
+        st.subheader("📈 Comparativo de Faturamento por Ano")
+        fig_comp = px.bar(tabela_ano, x='Ano', y='Faturamento', text_auto='.2s', color='Ano')
+        fig_comp.update_yaxes(tickprefix='R$ ')
+        st.plotly_chart(fig_comp, use_container_width=True)
 
-        col4, col5, col6 = st.columns(3)
-        col4.metric("Melhor Loja", melhor_loja)
-        col5.metric("Categoria Top", categoria_top, f"R$ {valor_categoria_top:,.2f}")
-        col6.metric("Produto Top", produto_top, f"R$ {valor_produto_top:,.2f}")
+        # GRÁFICO POR MÊS E ANO
+        st.subheader("Comparativo Mensal")
+        comp_mes_ano = df.groupby(['ano', 'mes'])['valor_total'].sum().reset_index()
+        comp_mes_ano['mes_nome'] = comp_mes_ano['mes'].apply(lambda x: calendar.month_name[x][:3])
+        fig_mes = px.line(comp_mes_ano, x='mes_nome', y='valor_total', color='ano', markers=True)
+        fig_mes.update_yaxes(tickprefix='R$ ')
+        st.plotly_chart(fig_mes, use_container_width=True)
 
         st.divider()
-
-        st.subheader("Top 10 Produtos Mais Vendidos")
+        st.subheader("Top 10 Produtos do Período")
         top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
-        if len(top_produtos) > 0:
-            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
-            fig3.update_layout(yaxis={'categoryorder':'total ascending'}, height=400)
-            fig3.update_traces(texttemplate='R$ %{x:,.2f}', textposition='outside')
-            fig3.update_xaxes(tickprefix='R$ ')
-            st.plotly_chart(fig3, use_container_width=True)
-
-        col_graf1, col_graf2 = st.columns(2)
-        with col_graf1:
-            st.subheader("Vendas por Categoria")
-            cat_df = df.groupby('categoria')['valor_total'].sum().reset_index()
-            if len(cat_df) > 0:
-                fig1 = px.bar(cat_df, x='categoria', y='valor_total')
-                fig1.update_layout(xaxis_tickangle=-45)
-                fig1.update_traces(texttemplate='R$ %{y:,.2f}', textposition='outside')
-                fig1.update_yaxes(tickprefix='R$ ')
-                st.plotly_chart(fig1, use_container_width=True)
-
-        with col_graf2:
-            st.subheader("Faturamento por Dia")
-            dia_df = df.groupby('data')['valor_total'].sum().reset_index()
-            if len(dia_df) > 0:
-                fig2 = px.line(dia_df, x='data', y='valor_total')
-                fig2.update_yaxes(tickprefix='R$ ')
-                st.plotly_chart(fig2, use_container_width=True)
+        fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
+        fig3.update_layout(yaxis={'categoryorder':'total ascending'})
+        fig3.update_traces(texttemplate='R$ %{x:,.2f}', textposition='outside')
+        fig3.update_xaxes(tickprefix='R$ ')
+        st.plotly_chart(fig3, use_container_width=True)
 
     else:
-        st.warning("Nenhum dado encontrado com os filtros selecionados. Marque alguns dias.")
+        st.warning("Nenhum dado encontrado com os filtros selecionados.")
 
 else:
     st.info("👆 Faça upload do arquivo Excel para começar")
