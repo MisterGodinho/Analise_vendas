@@ -22,10 +22,26 @@ def carregar_dados(files):
                     continue
                 with z.open(nome_arquivo) as f:
                     if nome_arquivo.endswith('.xlsx') or nome_arquivo.endswith('.xls'):
-                        df_temp = pd.read_excel(f, sheet_name=0, header=0, usecols='D,F,I,L')
-                        df_temp.columns = ['loja', 'data', 'produto', 'valor_total']
+                        # LENDO AS COLUNAS CERTAS: F,G,I,J,Q
+                        df_temp = pd.read_excel(
+                            f, 
+                            sheet_name=0, 
+                            header=0, 
+                            usecols='F,G,I,J,Q' # Tienda, Fecha, Descripcion, Categoria, Importe
+                        )
+                        df_temp.columns = ['loja', 'data', 'produto', 'categoria', 'valor_total']
+                    
                     elif nome_arquivo.endswith('.csv'):
-                        df_temp = pd.read_csv(f, sep=';', usecols=[3,5,8,11], names=['loja','data','produto','valor_total'], header=0, encoding='latin-1', on_bad_lines='skip', engine='python')
+                        df_temp = pd.read_csv(
+                            f, 
+                            sep=';', 
+                            usecols=[5,6,8,9,16], # F=5, G=6, I=8, J=9, Q=16
+                            names=['loja','data','produto','categoria','valor_total'],
+                            header=0,
+                            encoding='latin-1',
+                            on_bad_lines='skip',
+                            engine='python'
+                        )
                     else:
                         continue
                     lista_df.append(df_temp)
@@ -38,30 +54,26 @@ if uploaded_files:
     else:
         df = carregar_dados(uploaded_files)
 
-        # CORREÇÕES BRASILEIRAS
-        df['categoria'] = df['produto'].astype(str).str.split().str[0]
-
-        # 1. Limpa o valor: tira R$, ponto e troca, por.
-        df['valor_total'] = df['valor_total'].astype(str).str.replace('R\$', '', regex=True).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+        # LIMPEZA BRASILEIRA
+        df['valor_total'] = df['valor_total'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
         df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce')
 
-        # 2. Converte data aceitando. ou /
         df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
-
         df = df.dropna(subset=['data', 'valor_total', 'loja', 'produto'])
 
         df['ano'] = df['data'].dt.year
         df['id_pedido'] = df.index.astype(str)
 
+        # FILTROS
         st.sidebar.header("🔍 Filtros")
         anos = st.sidebar.multiselect("Ano", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
-        df = df[df['ano'].isin(anos)]
+        df_temp = df[df['ano'].isin(anos)]
 
-        lojas = st.sidebar.multiselect("Loja", options=sorted(df['loja'].unique()), default=sorted(df['loja'].unique()))
-        df = df[df['loja'].isin(lojas)]
+        lojas = st.sidebar.multiselect("Loja", options=sorted(df_temp['loja'].unique()), default=sorted(df_temp['loja'].unique()))
+        df_temp = df_temp[df_temp['loja'].isin(lojas)]
 
-        categorias = st.sidebar.multiselect("Categoria", options=sorted(df['categoria'].unique()), default=sorted(df['categoria'].unique()))
-        df = df[df['categoria'].isin(categorias)]
+        categorias = st.sidebar.multiselect("Categoria", options=sorted(df_temp['categoria'].unique()), default=sorted(df_temp['categoria'].unique()))
+        df = df_temp[df_temp['categoria'].isin(categorias)]
 
         st.sidebar.write("Total de registros: " + str(len(df)))
 
@@ -75,13 +87,4 @@ if uploaded_files:
 
             st.divider()
             st.subheader("Top 10 Lojas por Faturamento")
-            df_loja = df.groupby('loja')['valor_total'].sum().reset_index().sort_values('valor_total', ascending=False).head(10)
-            fig = px.bar(df_loja, x='loja', y='valor_total', text_auto='.2s')
-            fig.update_yaxes(tickprefix='R$ ')
-            fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.error("Nenhum dado encontrado. Verifique se as colunas D,F,I,L estão corretas no Excel.")
-
-else:
-    st.info("👆 Faça upload dos arquivos 2025.zip e 2026.zip")
+            df_loja = df.groupby('loja')
