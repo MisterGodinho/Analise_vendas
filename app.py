@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import calendar
+from io import BytesIO
 
 st.set_page_config(page_title="Análise de Vendas", layout="wide")
 st.title("📊 Análise de Vendas Gerenciais")
@@ -34,13 +35,8 @@ if uploaded_file:
     # ===== FILTROS NA SIDEBAR =====
     st.sidebar.header("🔍 Filtros")
 
-    # ANO - MULTISELECT PRA SELECIONAR 2 ANOS
     anos_disponiveis = sorted(df['ano'].unique())
-    anos_selecionados = st.sidebar.multiselect(
-        "Ano - Selecione 1 ou 2 para comparar",
-        anos_disponiveis,
-        default=[anos_disponiveis[-1]] # já vem com o último ano marcado
-    )
+    anos_selecionados = st.sidebar.multiselect("Ano - Selecione 1 ou 2", anos_disponiveis, default=[anos_disponiveis[-1]])
 
     if not anos_selecionados:
         st.warning("Selecione pelo menos 1 ano")
@@ -48,21 +44,14 @@ if uploaded_file:
 
     df_ano = df[df['ano'].isin(anos_selecionados)]
 
-    # MÊS - MULTISELECT TAMBÉM
     meses_disponiveis = sorted(df_ano['mes'].unique())
     nomes_meses = [calendar.month_name[m] for m in meses_disponiveis]
     mes_map = dict(zip(nomes_meses, meses_disponiveis))
-
-    meses_selecionados_nome = st.sidebar.multiselect(
-        "Mês",
-        nomes_meses,
-        default=[nomes_meses[-1]]
-    )
+    meses_selecionados_nome = st.sidebar.multiselect("Mês", nomes_meses, default=[nomes_meses[-1]])
     meses_selecionados = [mes_map[m] for m in meses_selecionados_nome]
 
     df_mes = df_ano[df_ano['mes'].isin(meses_selecionados)]
 
-    # DIAS - CHECKBOX
     st.sidebar.write("**Dias:**")
     dias_disponiveis = sorted(df_mes['dia'].unique())
     col_dias = st.sidebar.columns(7)
@@ -81,40 +70,71 @@ if uploaded_file:
     if categoria: df_mes = df_mes[df_mes['categoria'].isin(categoria)]
     df = df_mes
 
+    # ===== META =====
+    st.sidebar.divider()
+    st.sidebar.subheader("🎯 Meta")
+    meta = st.sidebar.number_input("Digite a Meta do Período R$", min_value=0.0, value=10000.0, step=1000.0)
+
     # ===== KPIs =====
     if len(df) > 0:
-        st.subheader(f"📅 Comparando: {', '.join(meses_selecionados_nome)} / {', '.join(map(str, anos_selecionados))}")
+        faturamento = df['valor_total'].sum()
+        atingimento = (faturamento / meta * 100) if meta > 0 else 0
 
-        # TABELA DE COMPARAÇÃO POR ANO
-        tabela_ano = df.groupby('ano')['valor_total'].agg(['sum', 'mean', 'count']).reset_index()
-        tabela_ano.columns = ['Ano', 'Faturamento', 'Ticket Médio', 'Qtd Vendas']
-        tabela_ano['Faturamento'] = tabela_ano['Faturamento'].apply(lambda x: f"R$ {x:,.2f}")
-        tabela_ano['Ticket Médio'] = tabela_ano['Ticket Médio'].apply(lambda x: f"R$ {x:,.2f}")
+        st.subheader(f"📅 {', '.join(meses_selecionados_nome)} / {', '.join(map(str, anos_selecionados))}")
 
-        st.dataframe(tabela_ano, use_container_width=True, hide_index=True)
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Faturamento", f"R$ {faturamento:,.2f}")
+        col2.metric("Meta", f"R$ {meta:,.2f}")
+        col3.metric("% Atingimento", f"{atingimento:.1f}%", delta=f"{atingimento-100:.1f}%")
+        col4.metric("Ticket Médio", f"R$ {df['valor_total'].mean():,.2f}")
 
-        # GRÁFICO COMPARATIVO POR ANO
-        st.subheader("📈 Comparativo de Faturamento por Ano")
-        fig_comp = px.bar(tabela_ano, x='Ano', y='Faturamento', text_auto='.2s', color='Ano')
-        fig_comp.update_yaxes(tickprefix='R$ ')
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-        # GRÁFICO POR MÊS E ANO
-        st.subheader("Comparativo Mensal")
-        comp_mes_ano = df.groupby(['ano', 'mes'])['valor_total'].sum().reset_index()
-        comp_mes_ano['mes_nome'] = comp_mes_ano['mes'].apply(lambda x: calendar.month_name[x][:3])
-        fig_mes = px.line(comp_mes_ano, x='mes_nome', y='valor_total', color='ano', markers=True)
-        fig_mes.update_yaxes(tickprefix='R$ ')
-        st.plotly_chart(fig_mes, use_container_width=True)
+        # ===== % CRESCIMENTO ENTRE 2 ANOS =====
+        if len(anos_selecionados) == 2:
+            ano1, ano2 = sorted(anos_selecionados)
+            fat_ano1 = df[df['ano'] == ano1]['valor_total'].sum()
+            fat_ano2 = df[df['ano'] == ano2]['valor_total'].sum()
+            crescimento = ((fat_ano2 - fat_ano1) / fat_ano1 * 100) if fat_ano1 > 0 else 0
+            st.success(f"📈 Crescimento de {ano1} para {ano2}: **{crescimento:.1f}%**")
 
         st.divider()
-        st.subheader("Top 10 Produtos do Período")
+
+        # ===== GRÁFICOS =====
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            st.subheader("Faturamento por Ano")
+            fat_ano = df.groupby('ano')['valor_total'].sum().reset_index()
+            fig1 = px.bar(fat_ano, x='ano', y='valor_total', text_auto='.2s', color='ano')
+            fig1.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig1, use_container_width=True)
+
+        with col_g2:
+            st.subheader("Meta vs Realizado")
+            fig_meta = px.bar(x=['Meta', 'Realizado'], y=[meta, faturamento], text_auto='.2s')
+            fig_meta.update_traces(texttemplate='R$ %{y:,.2f}')
+            fig_meta.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig_meta, use_container_width=True)
+
+        st.subheader("Top 10 Produtos")
         top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
         fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
         fig3.update_layout(yaxis={'categoryorder':'total ascending'})
         fig3.update_traces(texttemplate='R$ %{x:,.2f}', textposition='outside')
         fig3.update_xaxes(tickprefix='R$ ')
         st.plotly_chart(fig3, use_container_width=True)
+
+        # ===== BOTÃO EXPORTAR =====
+        st.divider()
+        if st.button("📄 Exportar Dados em Excel"):
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, sheet_name='Dados Filtrados', index=False)
+                fat_ano.to_excel(writer, sheet_name='Resumo Ano', index=False)
+            st.download_button(
+                label="⬇️ Baixar Excel",
+                data=output.getvalue(),
+                file_name="relatorio_vendas.xlsx",
+                mime="application/vnd.ms-excel"
+            )
 
     else:
         st.warning("Nenhum dado encontrado com os filtros selecionados.")
