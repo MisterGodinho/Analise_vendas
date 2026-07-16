@@ -24,19 +24,8 @@ def carregar_dados(files):
                     if nome_arquivo.endswith('.xlsx') or nome_arquivo.endswith('.xls'):
                         df_temp = pd.read_excel(f, sheet_name=0, header=0, usecols='D,F,I,L')
                         df_temp.columns = ['loja', 'data', 'produto', 'valor_total']
-
                     elif nome_arquivo.endswith('.csv'):
-                        # CORREÇÃO: sep=';' e engine='python'
-                        df_temp = pd.read_csv(
-                            f,
-                            sep=';', # CSV BRASILEIRO USA ;
-                            usecols=[3,5,8,11],
-                            names=['loja','data','produto','valor_total'],
-                            header=0,
-                            encoding='latin-1',
-                            on_bad_lines='skip',
-                            engine='python' # Evita ParserError
-                        )
+                        df_temp = pd.read_csv(f, sep=';', usecols=[3,5,8,11], names=['loja','data','produto','valor_total'], header=0, encoding='latin-1', on_bad_lines='skip', engine='python')
                     else:
                         continue
                     lista_df.append(df_temp)
@@ -49,9 +38,16 @@ if uploaded_files:
     else:
         df = carregar_dados(uploaded_files)
 
+        # CORREÇÕES BRASILEIRAS
         df['categoria'] = df['produto'].astype(str).str.split().str[0]
-        df['data'] = pd.to_datetime(df['data'], format='%d.%m.%Y', errors='coerce')
+
+        # 1. Limpa o valor: tira R$, ponto e troca, por.
+        df['valor_total'] = df['valor_total'].astype(str).str.replace('R\$', '', regex=True).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
         df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce')
+
+        # 2. Converte data aceitando. ou /
+        df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
+
         df = df.dropna(subset=['data', 'valor_total', 'loja', 'produto'])
 
         df['ano'] = df['data'].dt.year
@@ -85,7 +81,7 @@ if uploaded_files:
             fig.update_layout(xaxis_tickangle=-45)
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.error("Nenhum dado encontrado com os filtros")
+            st.error("Nenhum dado encontrado. Verifique se as colunas D,F,I,L estão corretas no Excel.")
 
 else:
     st.info("👆 Faça upload dos arquivos 2025.zip e 2026.zip")
