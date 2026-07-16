@@ -59,10 +59,10 @@ if uploaded_file:
     meta_geral = st.sidebar.number_input("Meta Geral R$", value=500000.0, step=10000.0)
 
     st.sidebar.write("**Meta por Loja**")
-    metas_loja = {} # CORRIGIDO: agora não sobrescreve mais
+    metas_loja = {} # DICIONARIO VAZIO
     valor_padrao = meta_geral / len(lojas_disponiveis) if len(lojas_disponiveis) > 0 else 0
     for i, loja in enumerate(lojas_disponiveis):
-        metas_loja = st.sidebar.number_input(loja, value=valor_padrao, step=5000.0, key=i) # AQUI ERA O ERRO
+        metas_loja = st.sidebar.number_input(loja, value=valor_padrao, step=5000.0, key=f"meta_{i}") # CORRIGIDO AQUI
 
     if len(df) > 0:
         faturamento = df['valor_total'].sum()
@@ -98,7 +98,7 @@ if uploaded_file:
 
         st.subheader("📊 Performance por Loja")
         df_loja = df.groupby('loja')['valor_total'].sum().reset_index()
-        df_loja['Meta'] = df_loja['loja'].map(metas_loja) # AGORA FUNCIONA
+        df_loja['Meta'] = df_loja['loja'].map(metas_loja).fillna(0) # ADICIONEI.fillna(0)
         df_loja['Atingimento %'] = (df_loja['valor_total'] / df_loja['Meta'] * 100).round(1)
         df_loja['Status'] = df_loja['Atingimento %'].apply(lambda x: '🟢' if x >= 100 else '🟡' if x >= 80 else '🔴')
         df_loja = df_loja.sort_values('Atingimento %', ascending=False)
