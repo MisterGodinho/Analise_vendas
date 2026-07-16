@@ -25,7 +25,6 @@ def carregar_dados(files):
                         df_temp = pd.read_csv(f, sep=';', usecols=[5,6,8,9,16], names=['loja','data','produto','categoria','valor'], header=0, encoding='latin-1', on_bad_lines='skip')
                     else:
                         continue
-                    # LIMPEZA PRA NÃO BUGAR
                     df_temp['loja'] = df_temp['loja'].astype(str).str.strip()
                     df_temp['produto'] = df_temp['produto'].astype(str).str.strip()
                     df_temp['categoria'] = df_temp['categoria'].astype(str).str.strip()
@@ -36,40 +35,30 @@ def carregar_dados(files):
 
 if uploaded_files and len(uploaded_files) >= 2:
     df = carregar_dados(uploaded_files)
-
     df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
     df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
     df = df.dropna(subset=['data', 'valor'])
-    df = df[df['loja'] != ''] # Remove loja vazia
-
+    df = df[df['loja']!= '']
     df['ano'] = df['data'].dt.year
     df['id'] = df.index.astype(str)
 
     st.sidebar.header("Filtros")
     anos = st.sidebar.multiselect("Ano", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_f = df[df['ano'].isin(anos)].copy()
-
-    # SE NÃO SELECIONAR NADA, MOSTRA TODAS
     todas_lojas = sorted(df_f['loja'].unique())
     lojas = st.sidebar.multiselect("Loja", options=todas_lojas, default=todas_lojas)
-    if len(lojas) > 0:
-        df_f = df_f[df_f['loja'].isin(lojas)]
-
+    if len(lojas) > 0: df_f = df_f[df_f['loja'].isin(lojas)]
     todas_cats = sorted(df_f['categoria'].unique())
     cats = st.sidebar.multiselect("Categoria", options=todas_cats, default=todas_cats)
-    if len(cats) > 0:
-        df_f = df_f[df_f['categoria'].isin(cats)]
+    if len(cats) > 0: df_f = df_f[df_f['categoria'].isin(cats)]
 
     st.sidebar.divider()
     st.sidebar.header("Metas")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 1000000.0)
-
     st.sidebar.subheader("Meta por Loja")
     lojas_meta = st.sidebar.multiselect("Selecione lojas para meta", options=sorted(df['loja'].unique()))
     dict_meta_loja = {}
-    for loja in lojas_meta:
-        dict_meta_loja = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 10000000.0, 100000.0, key=loja)
-
+    for loja in lojas_meta: dict_meta_loja = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 10000000.0, 100000.0, key=loja)
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
 
@@ -114,6 +103,7 @@ if uploaded_files and len(uploaded_files) >= 2:
             fig.update_layout(showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
 
+            # 1. TOP 10 PRODUTOS POR ANO - MANTIDO
             st.divider()
             st.subheader("Top 10 Produtos por Ano")
             col_ano1, col_ano2 = st.columns(2)
@@ -127,4 +117,30 @@ if uploaded_files and len(uploaded_files) >= 2:
             with col_ano2:
                 st.write(f"**Ano {ano0}**")
                 dfp0 = df[df['ano']==ano0].groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp0 = px.bar(dfp0, x='valor', y
+                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text_auto='.2s') # PARENTESE CORRIGIDO
+                figp0.update_xaxes(tickprefix='R$ ')
+                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(figp0, use_container_width=True)
+
+            # 2. MELHOR LOJA EM PERFORMANCE - ADICIONADO AQUI
+            st.divider()
+            st.subheader("Melhor Loja em Performance")
+            dfl_geral = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+            if len(dfl_geral) > 0:
+                melhor_loja = dfl_geral['loja'].iloc[0]
+                valor_melhor = dfl_geral['valor'].iloc[0]
+                st.success(f"🏆 **{melhor_loja}** com faturamento de **R$ {valor_melhor:,.0f}**")
+
+                figl = px.bar(dfl_geral.head(10), x='loja', y='valor', text_auto='.2s', color='valor', color_continuous_scale='Greens')
+                figl.update_yaxes(tickprefix='R$ ')
+                figl.update_layout(xaxis_tickangle=-45, showlegend=False)
+                st.plotly_chart(figl, use_container_width=True)
+            else:
+                st.warning("Nenhuma loja encontrada com os filtros atuais")
+        else:
+            st.warning("Selecione 2 anos nos filtros para ver o comparativo ano a ano")
+
+        st.divider()
+        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
+else:
+    st.info("Upload dos 2.zip")
