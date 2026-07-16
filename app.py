@@ -125,7 +125,7 @@ if uploaded_file:
             if atingimento_geral >= 100: cor, status = "VERDE", "Meta Batida"
             elif atingimento_geral >= 80: cor, status = "AMARELO", "Atencao"
             else: cor, status = "VERMELHO", "Abaixo da Meta"
-            st.markdown("<h3>" + cor + " + status + " - " + periodo + "</h3>", unsafe_allow_html=True)
+            st.markdown("<h3>" + cor + " " + status + " - " + periodo + "</h3>", unsafe_allow_html=True) # CORRIGIDO AQUI
         else:
             st.markdown("<h3>Analise - " + periodo + "</h3>", unsafe_allow_html=True)
 
@@ -213,7 +213,3 @@ if uploaded_file:
             )
             fig3.update_xaxes(automargin=True)
             st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.error("Nenhum dado encontrado com os filtros selecionados. Tente selecionar menos filtros.")
-else:
-    st.info("Faca upload do arquivo Excel")
