@@ -15,19 +15,22 @@ def carregar_dados(files):
     for zip_file in files:
         with zipfile.ZipFile(zip_file) as z:
             for nome_arquivo in z.namelist():
-                if nome_arquivo.endswith('/'): continue
+                if nome_arquivo.endswith('/'): 
+                    continue
                 with z.open(nome_arquivo) as f:
                     if '.xlsx' in nome_arquivo:
                         df_temp = pd.read_excel(f, sheet_name=0, header=0, usecols='F,G,I,J,Q')
                         df_temp.columns = ['loja', 'data', 'produto', 'categoria', 'valor']
                     elif '.csv' in nome_arquivo:
                         df_temp = pd.read_csv(f, sep=';', usecols=[5,6,8,9,16], names=['loja','data','produto','categoria','valor'], header=0, encoding='latin-1', on_bad_lines='skip')
-                    else: continue
+                    else: 
+                        continue
                     df_temp['loja'] = df_temp['loja'].astype(str).str.strip()
                     df_temp['produto'] = df_temp['produto'].astype(str).str.strip()
                     df_temp['categoria'] = df_temp['categoria'].astype(str).str.strip()
                     lista_df.append(df_temp)
-    if len(lista_df) == 0: return pd.DataFrame()
+    if len(lista_df) == 0: 
+        return pd.DataFrame()
     return pd.concat(lista_df, ignore_index=True)
 
 if uploaded_files and len(uploaded_files) >= 2:
@@ -41,12 +44,16 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.sidebar.header("Filtros")
     anos = st.sidebar.multiselect("Ano", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_f = df[df['ano'].isin(anos)].copy()
+    
     todas_lojas = sorted(df_f['loja'].unique())
     lojas = st.sidebar.multiselect("Loja", options=todas_lojas, default=todas_lojas)
-    if len(lojas) > 0: df_f = df_f[df_f['loja'].isin(lojas)]
+    if len(lojas) > 0: 
+        df_f = df_f[df_f['loja'].isin(lojas)]
+    
     todas_cats = sorted(df_f['categoria'].unique())
     cats = st.sidebar.multiselect("Categoria", options=todas_cats, default=todas_cats)
-    if len(cats) > 0: df_f = df_f[df_f['categoria'].isin(cats)]
+    if len(cats) > 0: 
+        df_f = df_f[df_f['categoria'].isin(cats)]
 
     st.sidebar.divider()
     st.sidebar.header("Metas")
@@ -55,7 +62,7 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.sidebar.subheader("Meta por Loja")
     dict_meta_loja = {}
     for loja in sorted(df['loja'].unique()):
-        dict_meta_loja = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 0.0, 100000.0, key=f"meta_{loja}") # CORRIGIDO
+        dict_meta_loja = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 0.0, 100000.0, key=f"meta_{loja}")
 
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
@@ -96,34 +103,4 @@ if uploaded_files and len(uploaded_files) >= 2:
             x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
             x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
             x3.metric("Crescimento", f"{cresc:.2f}%")
-            fig = px.bar(dfa, x='ano', y='valor', text_auto='.2s', color='ano')
-            fig.update_yaxes(tickprefix='R$ ')
-            fig.update_layout(showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
-
-            st.divider()
-            st.subheader("Top 10 Produtos por Ano")
-            col_ano1, col_ano2 = st.columns(2)
-            with col_ano1:
-                st.write(f"**Ano {ano1}**")
-                dfp1 = df[df['ano']==ano1].groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', text_auto='.2s')
-                figp1.update_xaxes(tickprefix='R$ ')
-                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp1, use_container_width=True)
-            with col_ano2:
-                st.write(f"**Ano {ano0}**")
-                dfp0 = df[df['ano']==ano0].groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text_auto='.2s')
-                figp0.update_xaxes(tickprefix='R$ ')
-                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp0, use_container_width=True)
-
-            st.divider()
-            st.subheader("Melhor Loja em Performance")
-            dfl_geral = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
-            if len(dfl_geral) > 0:
-                melhor_loja = dfl_geral['loja'].iloc[0]
-                valor_melhor = dfl_geral['valor'].iloc[0]
-                st.success(f"🏆 **{melhor_loja}** com faturamento de **R$ {valor_melhor:,.0f}**")
-                figl = px.bar(dfl_geral.head(10), x='loja', y='valor', text_auto='.2s', color='valor', color
+            fig = px.bar(dfa, x='ano', y='
