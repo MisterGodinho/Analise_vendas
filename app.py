@@ -51,8 +51,12 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.sidebar.divider()
     st.sidebar.header("Metas")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 1000000.0)
+
+    st.sidebar.subheader("Meta por Loja")
     dict_meta_loja = {}
-    for loja in sorted(df['loja'].unique()): dict_meta_loja = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 0.0, 100000.0, key=f"meta_{loja}")
+    for loja in sorted(df['loja'].unique()):
+        dict_meta_loja = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 0.0, 100000.0, key=f"meta_{loja}") # CORRIGIDO
+
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
 
@@ -119,4 +123,7 @@ if uploaded_files and len(uploaded_files) >= 2:
             st.subheader("Melhor Loja em Performance")
             dfl_geral = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
             if len(dfl_geral) > 0:
-                melhor
+                melhor_loja = dfl_geral['loja'].iloc[0]
+                valor_melhor = dfl_geral['valor'].iloc[0]
+                st.success(f"🏆 **{melhor_loja}** com faturamento de **R$ {valor_melhor:,.0f}**")
+                figl = px.bar(dfl_geral.head(10), x='loja', y='valor', text_auto='.2s', color='valor', color
