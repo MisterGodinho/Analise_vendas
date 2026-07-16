@@ -115,7 +115,7 @@ if uploaded_file:
             if atingimento_geral >= 100: cor, status = "🟢", "Meta Batida"
             elif atingimento_geral >= 80: cor, status = "🟡", "Atenção"
             else: cor, status = "🔴", "Abaixo da Meta"
-            st.markdown("<h3>" + cor + " " + status + " - " + periodo + "</h3>", unsafe_allow_html=True)
+            st.markdown("<h3>" + cor + " + status + " - " + periodo + "</h3>", unsafe_allow_html=True)
         else:
             st.markdown("<h3>📊 Análise - " + periodo + "</h3>", unsafe_allow_html=True)
 
@@ -187,10 +187,21 @@ if uploaded_file:
             st.plotly_chart(fig_dia, use_container_width=True)
         with tab2:
             top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index().sort_values('valor_total', ascending=True)
-            top_produtos['produto'] = top_produtos['produto'].str.wrap(18)
-            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h', title="Top 10 Produtos - Maior Venda")
-            fig3.update_layout(height=400, margin=dict(l=130))
-            fig3.update_traces(texttemplate='R$ %{x:,.0f}', textposition='outside')
+            top_produtos['produto'] = top_produtos['produto'].str.wrap(22)
+
+            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h', title="Top 10 Produtos - Maior Venda", text='valor_total')
+            fig3.update_layout(
+                height=450,
+                margin=dict(l=160, r=80, t=40, b=40),
+                xaxis_title="R$",
+                yaxis_title=""
+            )
+            fig3.update_traces(
+                texttemplate='R$ %{x:,.0f}',
+                textposition='outside',
+                cliponaxis=False
+            )
+            fig3.update_xaxes(automargin=True)
             st.plotly_chart(fig3, use_container_width=True)
     else:
         st.error("⚠️ Nenhum dado encontrado com os filtros selecionados. Tente selecionar menos filtros.")
