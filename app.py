@@ -37,17 +37,33 @@ if uploaded_files and len(uploaded_files) >= 2:
     df['ano'] = df['data'].dt.year
     df['id'] = df.index.astype(str)
     
+    # SIDEBAR COM FILTROS + METAS
     st.sidebar.header("🔍 Filtros")
     anos = st.sidebar.multiselect("Ano", sorted(df['ano'].unique()), sorted(df['ano'].unique()))
-    df = df[df['ano'].isin(anos)]
+    df_f = df[df['ano'].isin(anos)]
     
-    lojas = st.sidebar.multiselect("Loja", sorted(df['loja'].unique()), sorted(df['loja'].unique()))
-    df = df[df['loja'].isin(lojas)]
+    lojas = st.sidebar.multiselect("Loja", sorted(df_f['loja'].unique()), sorted(df_f['loja'].unique()))
+    df_f = df_f[df_f['loja'].isin(lojas)]
     
-    cats = st.sidebar.multiselect("Categoria", sorted(df['categoria'].unique()), sorted(df['categoria'].unique()))
-    df = df[df['categoria'].isin(cats)]
+    cats = st.sidebar.multiselect("Categoria", sorted(df_f['categoria'].unique()), sorted(df_f['categoria'].unique()))
+    df_f = df_f[df_f['categoria'].isin(cats)]
     
-    st.sidebar.write("Total: " + str(len(df)))
+    st.sidebar.divider()
+    st.sidebar.header("🎯 Metas")
+    
+    # 1. META GERAL - CAMPO PARA DIGITAR
+    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 1000000.0)
+    
+    # 2. META POR LOJA - SELECIONAVEL
+    st.sidebar.subheader("Meta por Loja")
+    lojas_meta = st.sidebar.multiselect("Selecione lojas para meta", options=sorted(df['loja'].unique()))
+    
+    dict_meta_loja = {}
+    for loja in lojas_meta:
+        dict_meta_loja[loja] = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 10000000.0, 100000.0, key=loja)
+    
+    st.sidebar.write("Total registros: " + str(len(df_f)))
+    df = df_f
     
     if len(df) > 0:
         st.divider()
@@ -59,16 +75,22 @@ if uploaded_files and len(uploaded_files) >= 2:
         c4.metric("Qtd Pedidos", "{:,}".format(df['id'].nunique()))
         
         st.divider()
-        st.subheader("🎯 Meta de Faturamento")
-        meta = st.number_input("Meta Geral R$", 0.0, 500000000.0, 150000000.0, 1000000.0)
-        ating = (fat / meta) * 100 if meta > 0 else 0
-        st.metric("Atingimento", f"{ating:.2f}%", f"R$ {fat-meta:,.2f}")
+        st.subheader("🎯 Acompanhamento de Meta")
         
-        st.subheader("Performance por Loja")
-        dfm = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
-        dfm['Meta'] = meta / len(dfm)
-        dfm['%'] = (dfm['valor'] / dfm['Meta']) * 100
-        st.dataframe(dfm.style.format({'valor':'R$ {:,.2f}','Meta':'R$ {:,.2f}','%':'{:.2f}%'}), use_container_width=True)
+        # META GERAL
+        ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
+        st.metric("Meta Geral", f"R$ {meta_geral:,.2f}", f"Atingimento: {ating_geral:.2f}%")
+        
+        # META POR LOJA
+        if len(dict_meta_loja) > 0:
+            st.subheader("Performance por Loja com Meta")
+            dfm = df.groupby('loja')['valor'].sum().reset_index()
+            dfm['Meta'] = dfm['loja'].map(dict_meta_loja).fillna(0)
+            dfm['% Ating'] = (dfm['valor'] / dfm['Meta']) * 100
+            dfm = dfm[dfm['Meta'] > 0].sort_values('valor', ascending=False)
+            st.dataframe(dfm.style.format({'valor':'R$ {:,.2f}','Meta':'R$ {:,.2f}','% Ating':'{:.2f}%'}), use_container_width=True)
+        else:
+            st.info("Selecione lojas na sidebar para ver meta por loja")
         
         if len(df['ano'].unique()) > 1:
             st.divider()
