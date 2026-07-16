@@ -22,10 +22,22 @@ def carregar_dados(files):
                     continue
                 with z.open(nome_arquivo) as f:
                     if nome_arquivo.endswith('.xlsx') or nome_arquivo.endswith('.xls'):
+                        # Colunas: F=loja, G=data, I=produto, J=categoria, Q=valor_total
                         df_temp = pd.read_excel(f, sheet_name=0, header=0, usecols='F,G,I,J,Q')
                         df_temp.columns = ['loja', 'data', 'produto', 'categoria', 'valor_total']
+                    
                     elif nome_arquivo.endswith('.csv'):
-                        df_temp = pd.read_csv(f, sep=';', usecols=[5,6,8,9,16], names=['loja','data','produto','categoria','valor_total'], header=0, encoding='latin-1', on_bad_lines='skip', engine='python')
+                        # Colunas: F=5, G=6, I=8, J=9, Q=16
+                        df_temp = pd.read_csv(
+                            f, 
+                            sep=';', 
+                            usecols=[5,6,8,9,16], 
+                            names=['loja','data','produto','categoria','valor_total'],
+                            header=0,
+                            encoding='latin-1',
+                            on_bad_lines='skip',
+                            engine='python'
+                        )
                     else:
                         continue
                     lista_df.append(df_temp)
@@ -38,17 +50,16 @@ if uploaded_files:
     else:
         df = carregar_dados(uploaded_files)
 
-        # LIMPEZA
+        # LIMPEZA DE DADOS BR
         df['valor_total'] = df['valor_total'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
         df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce')
         df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
         df = df.dropna(subset=['data', 'valor_total', 'loja', 'produto'])
 
         df['ano'] = df['data'].dt.year
-        df['mes'] = df['data'].dt.month
         df['id_pedido'] = df.index.astype(str)
 
-        # FILTROS
+        # SIDEBAR FILTROS
         st.sidebar.header("🔍 Filtros")
         anos = st.sidebar.multiselect("Ano", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
         df_temp = df[df['ano'].isin(anos)]
@@ -62,8 +73,17 @@ if uploaded_files:
         st.sidebar.write("Total de registros: " + str(len(df)))
 
         if len(df) > 0:
-            
-            # KPIs
             st.divider()
+            
+            # KPIS PRINCIPAIS
             col1, col2, col3, col4 = st.columns(4)
-            faturamento_total = df['valor_total
+            faturamento_total = df['valor_total'].sum()
+            col1.metric("Faturamento Total", "R$ {:,.2f}".format(faturamento_total))
+            col2.metric("Ticket Médio", "R$ {:,.2f}".format(df['valor_total'].mean()))
+            col3.metric("Qtd Itens", "{:,}".format(len(df)))
+            col4.metric("Qtd Pedidos", "{:,}".format(df['id_pedido'].nunique()))
+
+            # 1. META GERAL E POR LOJA
+            st.divider()
+            st.subheader("🎯 Meta de Faturamento")
+            meta_ger
