@@ -5,18 +5,28 @@ import calendar
 
 st.set_page_config(page_title="Dashboard Gerencial", layout="wide")
 
-# CSS PRA DEIXAR COMPACTO
+# CSS EXECUTIVO - FONTE PEQUENA E ORGANIZADA
 st.markdown("""
 <style>
-    div[data-testid="metric-container"] {
+   .kpi-box {
         background-color: #262730;
-        border: 1px solid #444;
-        padding: 10px;
-        border-radius: 8px;
-        margin-bottom: 5px;
+        border-left: 4px solid #00FF7F;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-bottom: 8px;
     }
-    div[data-testid="metric-container"] > label { font-size: 12px!important; }
-    div[data-testid="metric-container"] > div { font-size: 20px!important; font-weight: bold!important; }
+   .kpi-label {
+        font-size: 11px;
+        color: #AAAAAA;
+        margin-bottom: 2px;
+        text-transform: uppercase;
+    }
+   .kpi-value {
+        font-size: 16px;
+        font-weight: bold;
+        color: white;
+    }
+    h3 { font-size: 18px!important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -54,61 +64,46 @@ if uploaded_file:
         categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax()
 
         # SEMAFORO
-        if atingimento >= 100: cor, status = "🟢", "Meta Batida"
-        elif atingimento >= 80: cor, status = "🟡", "Atenção"
-        else: cor, status = "🔴", "Abaixo da Meta"
+        if atingimento >= 100: cor, status, cor_barra = "🟢", "Meta Batida", "#00FF7F"
+        elif atingimento >= 80: cor, status, cor_barra = "🟡", "Atenção", "#FFD700"
+        else: cor, status, cor_barra = "🔴", "Abaixo da Meta", "#FF4500"
 
-        st.subheader(f"{cor} {status} - {calendar.month_name[meses[0]]}/{anos[0]}")
+        st.markdown(f"<h3>{cor} {status} - {calendar.month_name[meses[0]]}/{anos[0]}</h3>", unsafe_allow_html=True)
 
-        # ===== AGRUPADO EM 2 COLUNAS =====
-        col1, col2 = st.columns(2)
-
+        # ===== 3 COLUNAS - FONTE PEQUENA =====
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("💰 Faturamento", f"R$ {faturamento:,.2f}")
-            st.metric("📈 % Atingimento", f"{atingimento:.1f}%")
-            st.metric("🛒 Qtd. Vendas", f"{qtd_vendas:,}")
-
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>💰 Faturamento</div><div class='kpi-value'>R$ {faturamento:,.0f}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🎯 Meta</div><div class='kpi-value'>R$ {meta:,.0f}</div></div>", unsafe_allow_html=True)
         with col2:
-            st.metric("🎯 Meta", f"R$ {meta:,.2f}")
-            st.metric("🧾 Ticket Médio", f"R$ {ticket_medio:,.2f}")
-            st.metric("🏆 Melhor Loja", melhor_loja)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>📈 Atingimento</div><div class='kpi-value'>{atingimento:.1f}%</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🧾 Ticket Médio</div><div class='kpi-value'>R$ {ticket_medio:.2f}</div></div>", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🛒 Qtd. Vendas</div><div class='kpi-value'>{qtd_vendas:,}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🏆 Melhor Loja</div><div class='kpi-value'>{melhor_loja}</div></div>", unsafe_allow_html=True)
 
+        st.markdown(f"<div class='kpi-box'><div class='kpi-label'>⭐ Categoria Top</div><div class='kpi-value'>{categoria_top}</div></div>", unsafe_allow_html=True)
         st.progress(min(atingimento/100, 1.0))
-        st.caption(f"Realizado: R$ {faturamento:,.2f} de R$ {meta:,.2f} | Categoria Top: {categoria_top}")
 
         st.divider()
 
-        # ===== TUDO EM ABAS PRA NÃO FICAR GRANDE =====
-        tab1, tab2, tab3 = st.tabs(["📈 Vendas", "📦 Produtos", "🏬 Lojas"])
+        # ===== ABAS =====
+        tab1, tab2 = st.tabs(["📈 Performance", "📦 Top 10 Produtos"])
 
         with tab1:
-            col_g1, col_g2 = st.columns(2)
-            with col_g1:
-                fat_ano = df.groupby('ano')['valor_total'].sum().reset_index()
-                fig1 = px.bar(fat_ano, x='ano', y='valor_total', title="Faturamento por Ano")
-                fig1.update_yaxes(tickprefix='R$ ')
-                st.plotly_chart(fig1, use_container_width=True)
-            with col_g2:
-                fig_meta = px.bar(x=['Meta', 'Realizado'], y=[meta, faturamento], title="Meta vs Realizado")
-                fig_meta.update_yaxes(tickprefix='R$ ')
-                st.plotly_chart(fig_meta, use_container_width=True)
+            fat_ano = df.groupby('ano')['valor_total'].sum().reset_index()
+            fig1 = px.bar(fat_ano, x='ano', y='valor_total', title="Faturamento por Ano")
+            fig1.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig1, use_container_width=True)
 
         with tab2:
-            st.subheader("Top 10 Produtos")
             top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
-            top_produtos['produto'] = top_produtos['produto'].str.wrap(20)
+            top_produtos['produto'] = top_produtos['produto'].str.wrap(18)
             fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
-            fig3.update_layout(height=400, margin=dict(l=150))
+            fig3.update_layout(height=400, margin=dict(l=130))
             fig3.update_traces(texttemplate='R$ %{x:,.0f}', textposition='outside')
             fig3.update_xaxes(tickprefix='R$ ')
             st.plotly_chart(fig3, use_container_width=True)
-
-        with tab3:
-            st.subheader("Top 5 Lojas")
-            top_lojas = df.groupby('loja')['valor_total'].sum().nlargest(5).reset_index()
-            fig4 = px.bar(top_lojas, x='loja', y='valor_total')
-            fig4.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig4, use_container_width=True)
 
     else:
         st.warning("Nenhum dado encontrado.")
