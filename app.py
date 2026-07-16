@@ -53,16 +53,16 @@ if uploaded_files and len(uploaded_files) >= 2:
     todas_cats = sorted(df_f['categoria'].unique())
     cats = st.sidebar.multiselect("Categoria", options=todas_cats, default=todas_cats)
     if len(cats) > 0:
-        df_f = df_f[df_f['categoria'].isin(cats)]  # LINHA CORRIGIDA
+        df_f = df_f[df_f['categoria'].isin(cats)]
 
     st.sidebar.divider()
     st.sidebar.header("Metas")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 1000000.0)
+    
     st.sidebar.subheader("Meta por Loja")
-    lojas_meta = st.sidebar.multiselect("Selecione lojas para meta", options=sorted(df['loja'].unique()))
     dict_meta_loja = {}
-    for loja in lojas_meta:
-        dict_meta_loja[loja] = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 10000000.0, 100000.0, key=loja)
+    for loja in sorted(df['loja'].unique()):
+        dict_meta_loja[loja] = st.sidebar.number_input(f"Meta {loja}", 0.0, 50000000.0, 0.0, 100000.0, key=f"meta_{loja}")
 
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
@@ -80,12 +80,14 @@ if uploaded_files and len(uploaded_files) >= 2:
         st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
         st.progress(min(ating_geral/100, 1.0))
 
-        if len(dict_meta_loja) > 0:
+        dict_filtrado = {k:v for k,v in dict_meta_loja.items() if v > 0}
+        if len(dict_filtrado) > 0:
             st.subheader("Performance por Loja com Meta")
             dfm = df.groupby('loja')['valor'].sum().reset_index()
-            dfm['Meta'] = dfm['loja'].map(dict_meta_loja).fillna(0)
+            dfm['Meta'] = dfm['loja'].map(dict_filtrado).fillna(0)
+            dfm = dfm[dfm['Meta'] > 0]
             dfm['% Ating'] = (dfm['valor'] / dfm['Meta']) * 100
-            dfm = dfm[dfm['Meta'] > 0].sort_values('% Ating', ascending=False)
+            dfm = dfm.sort_values('% Ating', ascending=False)
             st.dataframe(dfm.style.format({'valor':'R$ {:,.2f}','Meta':'R$ {:,.2f}','% Ating':'{:.2f}%'}), use_container_width=True, hide_index=True)
 
         if len(df['ano'].unique()) > 1:
@@ -115,4 +117,8 @@ if uploaded_files and len(uploaded_files) >= 2:
                 figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', text_auto='.2s')
                 figp1.update_xaxes(tickprefix='R$ ')
                 figp1.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp1, use_container_width=True
+                st.plotly_chart(figp1, use_container_width=True) # PARENTESE FECHADO
+            with col_ano2:
+                st.write(f"**Ano {ano0}**")
+                dfp0 = df[df['ano']==ano0].groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp0 = px.bar(dfp0, x='valor
