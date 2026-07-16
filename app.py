@@ -110,4 +110,32 @@ if uploaded_files and len(uploaded_files) >= 2:
 
             st.divider()
             st.subheader("Top 10 Produtos por Ano")
-            col_ano1, col_ano2 = st.columns
+            col_ano1, col_ano2 = st.columns(2) # CORRIGIDO AQUI
+            with col_ano1:
+                st.write(f"**Ano {ano1}**")
+                dfp1 = df[df['ano']==ano1].groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h')
+                figp1.update_xaxes(tickprefix='R$ ')
+                st.plotly_chart(figp1, use_container_width=True)
+            with col_ano2:
+                st.write(f"**Ano {ano0}**")
+                dfp0 = df[df['ano']==ano0].groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h')
+                figp0.update_xaxes(tickprefix='R$ ')
+                st.plotly_chart(figp0, use_container_width=True)
+
+            st.divider()
+            st.subheader("Melhor Loja em Performance") # ADICIONADO DE VOLTA
+            dfl_geral = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+            if len(dfl_geral) > 0:
+                melhor_loja = dfl_geral['loja'].iloc[0]
+                valor_melhor = dfl_geral['valor'].iloc[0]
+                st.success(f"🏆 **{melhor_loja}** com faturamento de **R$ {valor_melhor:,.0f}**")
+                figl = px.bar(dfl_geral.head(10), x='loja', y='valor')
+                figl.update_yaxes(tickprefix='R$ ')
+                st.plotly_chart(figl, use_container_width=True)
+
+        st.divider()
+        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
+else:
+    st.info("Upload dos 2.zip")
