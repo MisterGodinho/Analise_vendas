@@ -25,6 +25,10 @@ def carregar_dados(files):
                         df_temp = pd.read_csv(f, sep=';', usecols=[5,6,8,9,16], names=['loja','data','produto','categoria','valor'], header=0, encoding='latin-1', on_bad_lines='skip')
                     else:
                         continue
+                    # LIMPEZA PRA NÃO BUGAR
+                    df_temp['loja'] = df_temp['loja'].astype(str).str.strip()
+                    df_temp['produto'] = df_temp['produto'].astype(str).str.strip()
+                    df_temp['categoria'] = df_temp['categoria'].astype(str).str.strip()
                     lista_df.append(df_temp)
     if len(lista_df) == 0:
         return pd.DataFrame()
@@ -35,22 +39,26 @@ if uploaded_files and len(uploaded_files) >= 2:
 
     df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
     df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
-    df = df.dropna(subset=['data', 'valor', 'loja'])
+    df = df.dropna(subset=['data', 'valor'])
+    df = df[df['loja'] != ''] # Remove loja vazia
 
-    # CRIA A COLUNA ANO AQUI ANTES DE TUDO
     df['ano'] = df['data'].dt.year
     df['id'] = df.index.astype(str)
 
     st.sidebar.header("Filtros")
-    # AGORA df['ano'] JÁ EXISTE
     anos = st.sidebar.multiselect("Ano", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_f = df[df['ano'].isin(anos)].copy()
 
-    lojas = st.sidebar.multiselect("Loja", options=sorted(df_f['loja'].unique()), default=sorted(df_f['loja'].unique()))
-    df_f = df_f[df_f['loja'].isin(lojas)]
+    # SE NÃO SELECIONAR NADA, MOSTRA TODAS
+    todas_lojas = sorted(df_f['loja'].unique())
+    lojas = st.sidebar.multiselect("Loja", options=todas_lojas, default=todas_lojas)
+    if len(lojas) > 0:
+        df_f = df_f[df_f['loja'].isin(lojas)]
 
-    cats = st.sidebar.multiselect("Categoria", options=sorted(df_f['categoria'].unique()), default=sorted(df_f['categoria'].unique()))
-    df_f = df_f[df_f['categoria'].isin(cats)]
+    todas_cats = sorted(df_f['categoria'].unique())
+    cats = st.sidebar.multiselect("Categoria", options=todas_cats, default=todas_cats)
+    if len(cats) > 0:
+        df_f = df_f[df_f['categoria'].isin(cats)]
 
     st.sidebar.divider()
     st.sidebar.header("Metas")
@@ -88,7 +96,6 @@ if uploaded_files and len(uploaded_files) >= 2:
             dfm = dfm[dfm['Meta'] > 0].sort_values('% Ating', ascending=False)
             st.dataframe(dfm.style.format({'valor':'R$ {:,.2f}','Meta':'R$ {:,.2f}','% Ating':'{:.2f}%'}), use_container_width=True, hide_index=True)
 
-        # COMPARATIVO SÓ APARECE SE TIVER 2 ANOS
         if len(df['ano'].unique()) > 1:
             st.divider()
             st.subheader("Comparativo Ano a Ano")
@@ -120,12 +127,4 @@ if uploaded_files and len(uploaded_files) >= 2:
             with col_ano2:
                 st.write(f"**Ano {ano0}**")
                 dfp0 = df[df['ano']==ano0].groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text_auto='.2s')
-                figp0.update_xaxes(tickprefix='R$ ')
-                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp0, use_container_width=True)
-
-            st.divider()
-            st.subheader("Melhor Loja de Performance")
-            dfl_perf = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(1)
-           
+                figp0 = px.bar(dfp0, x='valor', y
