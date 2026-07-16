@@ -25,9 +25,7 @@ if uploaded_file:
 
     mapa = {'Fecha':'data','Tienda':'loja','Categoria':'categoria','Descripción artículo':'produto','Importe con IVA':'valor_total','Código Ae':'id_pedido'}
     df = df.rename(columns=mapa)
-
-    if 'id_pedido' not in df.columns:
-        df['id_pedido'] = df.index
+    if 'id_pedido' not in df.columns: df['id_pedido'] = df.index
 
     df['data'] = pd.to_datetime(df['data'], errors='coerce')
     df['valor_total'] = pd.to_numeric(df['valor_total'], errors='coerce')
@@ -47,14 +45,12 @@ if uploaded_file:
 
     dias_disponiveis = sorted(df_filtro['dia'].unique())
     dias = st.sidebar.multiselect("Dia", dias_disponiveis, default=dias_disponiveis)
-    if len(dias) == 0:
-        dias = dias_disponiveis
+    if len(dias) == 0: dias = dias_disponiveis
     df_filtro = df_filtro[df_filtro['dia'].isin(dias)]
 
     lojas_disponiveis = sorted(df_filtro['loja'].unique())
     lojas = st.sidebar.multiselect("Loja", lojas_disponiveis, default=lojas_disponiveis)
-    if len(lojas) == 0:
-        lojas = lojas_disponiveis
+    if len(lojas) == 0: lojas = lojas_disponiveis
     df_filtro = df_filtro[df_filtro['loja'].isin(lojas)]
     df = df_filtro
 
@@ -77,30 +73,28 @@ if uploaded_file:
         melhor_loja = df.groupby('loja')['valor_total'].sum().idxmax()
         categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax()
 
-        if atingimento_geral >= 100:
-            cor, status = "🟢", "Meta Batida"
-        elif atingimento_geral >= 80:
-            cor, status = "🟡", "Atenção"
-        else:
-            cor, status = "🔴", "Abaixo da Meta"
+        if atingimento_geral >= 100: cor, status = "🟢", "Meta Batida"
+        elif atingimento_geral >= 80: cor, status = "🟡", "Atenção"
+        else: cor, status = "🔴", "Abaixo da Meta"
 
-        periodo = calendar.month_name[meses[0]] + "/" + str(anos[0])
-        if len(dias) == 1:
-            periodo = str(int(dias[0])) + " de " + periodo
-        st.markdown("<h3>" + cor + " + status + " - " + periodo + "</h3>", unsafe_allow_html=True)
+        periodo = f"{calendar.month_name[meses[0]]}/{anos[0]}"
+        if len(dias) == 1: periodo = f"{int(dias[0])} de {periodo}"
+
+        # CORRIGIDO AQUI - ERA ESSE O ERRO
+        st.markdown(f"<h3>{cor} {status} - {periodo}</h3>", unsafe_allow_html=True)
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.markdown("<div class='kpi-box'><div class='kpi-label'>💰 Faturamento</div><div class='kpi-value'>R$ " + f"{faturamento:,.0f}" + "</div></div>", unsafe_allow_html=True)
-            st.markdown("<div class='kpi-box'><div class='kpi-label'>🎯 Meta Geral</div><div class='kpi-value'>R$ " + f"{meta_geral:,.0f}" + "</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>💰 Faturamento</div><div class='kpi-value'>R$ {faturamento:,.0f}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🎯 Meta Geral</div><div class='kpi-value'>R$ {meta_geral:,.0f}</div></div>", unsafe_allow_html=True)
         with col2:
-            st.markdown("<div class='kpi-box'><div class='kpi-label'>📈 Atingimento</div><div class='kpi-value'>" + f"{atingimento_geral:.1f}" + "%</div></div>", unsafe_allow_html=True)
-            st.markdown("<div class='kpi-box'><div class='kpi-label'>🧾 Ticket Médio</div><div class='kpi-value'>R$ " + f"{ticket_medio:.2f}" + "</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>📈 Atingimento</div><div class='kpi-value'>{atingimento_geral:.1f}%</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🧾 Ticket Médio</div><div class='kpi-value'>R$ {ticket_medio:.2f}</div></div>", unsafe_allow_html=True)
         with col3:
-            st.markdown("<div class='kpi-box'><div class='kpi-label'>🛒 Qtd. Vendas</div><div class='kpi-value'>" + f"{qtd_vendas:,}" + "</div></div>", unsafe_allow_html=True)
-            st.markdown("<div class='kpi-box'><div class='kpi-label'>🏆 Melhor Loja</div><div class='kpi-value'>" + melhor_loja + "</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🛒 Qtd. Vendas</div><div class='kpi-value'>{qtd_vendas:,}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🏆 Melhor Loja</div><div class='kpi-value'>{melhor_loja}</div></div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='kpi-box'><div class='kpi-label'>⭐ Categoria Top</div><div class='kpi-value'>" + categoria_top + "</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='kpi-box'><div class='kpi-label'>⭐ Categoria Top</div><div class='kpi-value'>{categoria_top}</div></div>", unsafe_allow_html=True)
         st.progress(min(atingimento_geral/100, 1.0))
         st.divider()
 
@@ -114,8 +108,8 @@ if uploaded_file:
         col_tab, col_graf = st.columns([1, 1.5])
         with col_tab:
             df_show = df_loja.copy()
-            df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: "R$ " + f"{x:,.0f}")
-            df_show['Meta'] = df_show['Meta'].apply(lambda x: "R$ " + f"{x:,.0f}")
+            df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: f"R$ {x:,.0f}")
+            df_show['Meta'] = df_show['Meta'].apply(lambda x: f"R$ {x:,.0f}")
             st.dataframe(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']], use_container_width=True, hide_index=True, height=400)
 
         with col_graf:
