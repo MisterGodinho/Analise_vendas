@@ -31,7 +31,6 @@ if uploaded_file:
     df = pd.read_excel(uploaded_file, sheet_name=0, header=0)
     df.columns = df.columns.str.strip()
 
-    # MAPA ATUALIZADO COM AS COLUNAS DO SEU EXCEL
     mapa = {
         'Fecha':'data',
         'Tienda':'loja',
@@ -40,8 +39,6 @@ if uploaded_file:
         'Importe con IVA':'valor_total'
     }
     df = df.rename(columns=mapa)
-
-    # CORREÇÃO: Como não tem id_pedido, vamos criar um com a linha
     df['id_pedido'] = df.index.astype(str) + df['data'].astype(str)
 
     df['data'] = pd.to_datetime(df['data'], errors='coerce')
@@ -77,4 +74,122 @@ if uploaded_file:
 
     with st.sidebar.expander("👁️ Ver seleção atual"):
         st.write(f"**Anos:** {len(anos)} selecionado(s)")
-        st.write(f"**Meses
+        st.write(f"**Meses:** {len(meses)} selecionado(s)") # CORRIGIDO AQUI
+        st.write(f"**Dias:** {len(dias)} selecionado(s)")
+        st.write(f"**Lojas:** {len(lojas)} selecionada(s)")
+        st.write(f"**Categorias:** {len(categorias)} selecionada(s)")
+
+    st.sidebar.divider()
+    mostrar_metas = st.sidebar.checkbox("🎯 Mostrar Metas", value=True)
+
+    meta_geral = 0
+    metas_loja_lista = []
+    if mostrar_metas:
+        st.sidebar.subheader("🎯 Metas")
+        meta_geral = st.sidebar.number_input("Meta Geral R$", value=500000.0, step=10000.0)
+        st.sidebar.write("**Meta por Loja**")
+        valor_padrao = meta_geral / len(lojas_disponiveis) if len(lojas_disponiveis) > 0 else 0
+        for i, loja in enumerate(lojas_disponiveis):
+            meta = st.sidebar.number_input(loja, value=valor_padrao, step=5000.0, key=f"meta_{i}")
+            metas_loja_lista.append({'loja': loja, 'Meta': meta})
+
+    if len(df) > 0:
+        faturamento = df['valor_total'].sum()
+        ticket_medio = df['valor_total'].mean()
+        qtd_vendas = df['id_pedido'].nunique()
+
+        atingimento_geral = 0
+        if mostrar_metas and meta_geral > 0:
+            atingimento_geral = (faturamento / meta_geral * 100)
+
+        melhor_loja = df.groupby('loja')['valor_total'].sum().idxmax()
+        categoria_top = df.groupby('categoria')['valor_total'].sum().idxmax()
+
+        periodo = f"{calendar.month_name[meses[0]]}/{anos[0]}" if len(meses) == 1 and len(anos) == 1 else f"{len(anos)} Ano(s)"
+        if len(dias) == 1: periodo = f"{int(dias[0])} de {periodo}"
+
+        if mostrar_metas:
+            if atingimento_geral >= 100: cor, status = "🟢", "Meta Batida"
+            elif atingimento_geral >= 80: cor, status = "🟡", "Atenção"
+            else: cor, status = "🔴", "Abaixo da Meta"
+            st.markdown(f"<h3>{cor} {status} - {periodo}</h3>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<h3>📊 Análise - {periodo}</h3>", unsafe_allow_html=True)
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>💰 Faturamento</div><div class='kpi-value'>R$ {faturamento:,.0f}</div></div>", unsafe_allow_html=True)
+            if mostrar_metas:
+                st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🎯 Meta Geral</div><div class='kpi-value'>R$ {meta_geral:,.0f}</div></div>", unsafe_allow_html=True)
+        with col2:
+            if mostrar_metas:
+                st.markdown(f"<div class='kpi-box'><div class='kpi-label'>📈 Atingimento</div><div class='kpi-value'>{atingimento_geral:.1f}%</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🧾 Ticket Médio</div><div class='kpi-value'>R$ {ticket_medio:.2f}</div></div>", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🛒 Qtd. Vendas</div><div class='kpi-value'>{qtd_vendas:,}</div></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-box'><div class='kpi-label'>🏆 Melhor Loja</div><div class='kpi-value'>{melhor_loja}</div></div>", unsafe_allow_html=True)
+
+        st.markdown(f"<div class='kpi-box'><div class='kpi-label'>⭐ Categoria Top</div><div class='kpi-value'>{categoria_top}</div></div>", unsafe_allow_html=True)
+
+        if mostrar_metas:
+            st.progress(min(atingimento_geral/100, 1.0))
+
+        st.divider()
+        st.subheader("📊 Performance por Loja")
+        df_loja = df.groupby('loja')['valor_total'].sum().reset_index()
+
+        if mostrar_metas:
+            df_metas = pd.DataFrame(metas_loja_lista)
+            df_loja = df_loja.merge(df_metas, on='loja', how='left')
+            df_loja['Atingimento %'] = (df_loja['valor_total'] / df_loja['Meta'] * 100).round(1)
+            df_loja['Status'] = df_loja['Atingimento %'].apply(lambda x: '🟢' if x >= 100 else '🟡' if x >= 80 else '🔴')
+            df_loja = df_loja.sort_values('Atingimento %', ascending=False)
+
+            lojas_criticas = df_loja[df_loja['Atingimento %'] < 80]
+            if not lojas_criticas.empty:
+                st.markdown("<div class='alerta'>⚠️ ALERTA: Lojas abaixo de 80% da meta</div>", unsafe_allow_html=True)
+                for _, row in lojas_criticas.iterrows():
+                    st.warning(f"{row['loja']}: {row['Atingimento %']}% da meta")
+
+            col_tab, col_graf = st.columns([1, 1.5])
+            with col_tab:
+                df_show = df_loja.copy()
+                df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: f"R$ {x:,.0f}")
+                df_show['Meta'] = df_show['Meta'].apply(lambda x: f"R$ {x:,.0f}")
+                st.dataframe(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']], use_container_width=True, hide_index=True, height=400)
+                excel_data = to_excel(df_show[['Status', 'loja', 'Faturamento', 'Meta', 'Atingimento %']])
+                st.download_button(label="📥 Baixar Tabela Excel", data=excel_data, file_name="performance_lojas.xlsx")
+
+            with col_graf:
+                fig_meta_loja = go.Figure()
+                fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['Meta'], name='Meta', marker_color='gray', opacity=0.5))
+                fig_meta_loja.add_trace(go.Bar(x=df_loja['loja'], y=df_loja['valor_total'], name='Realizado', marker_color='#00FF7F'))
+                fig_meta_loja.update_layout(title="Meta vs Realizado por Loja", barmode='group', yaxis_tickprefix='R$ ', height=400)
+                st.plotly_chart(fig_meta_loja, use_container_width=True)
+        else:
+            df_loja = df_loja.sort_values('valor_total', ascending=False)
+            df_show = df_loja.copy()
+            df_show['Faturamento'] = df_show['valor_total'].apply(lambda x: f"R$ {x:,.0f}")
+            st.dataframe(df_show[['loja', 'Faturamento']], use_container_width=True, hide_index=True, height=400)
+            fig_simples = px.bar(df_loja, x='loja', y='valor_total', title="Faturamento por Loja")
+            fig_simples.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig_simples, use_container_width=True)
+
+        st.divider()
+        tab1, tab2 = st.tabs(["📈 Faturamento por Dia", "📦 Top 10 Produtos"])
+        with tab1:
+            fat_dia = df.groupby('dia')['valor_total'].sum().reset_index()
+            fig_dia = px.line(fat_dia, x='dia', y='valor_total', title="Faturamento por Dia", markers=True, color_discrete_sequence=['#00FF7F'])
+            fig_dia.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig_dia, use_container_width=True)
+        with tab2:
+            top_produtos = df.groupby('produto')['valor_total'].sum().nlargest(10).reset_index()
+            top_produtos['produto'] = top_produtos['produto'].str.wrap(18)
+            fig3 = px.bar(top_produtos, x='valor_total', y='produto', orientation='h')
+            fig3.update_layout(height=400, margin=dict(l=130))
+            fig3.update_traces(texttemplate='R$ %{x:,.0f}', textposition='outside')
+            st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.error("⚠️ Nenhum dado encontrado com os filtros selecionados. Tente selecionar menos filtros.")
+else:
+    st.info("👆 Faça upload do arquivo Excel")
