@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -46,7 +45,13 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.sidebar.header("Filtros")
     anos = st.sidebar.multiselect("Ano", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_f = df[df['ano'].isin(anos)].copy()
+    
     todas_lojas = sorted(df_f['loja'].unique())
     lojas = st.sidebar.multiselect("Loja", options=todas_lojas, default=todas_lojas)
-    if len(lojas) > 0: df_f = df_f[df_f['loja'].isin(lojas)]
-    todas_cats = sorted(df
+    if len(lojas) > 0:
+        df_f = df_f[df_f['loja'].isin(lojas)]
+    
+    todas_cats = sorted(df_f['categoria'].unique())
+    cats = st.sidebar.multiselect("Categoria", options=todas_cats, default=todas_cats)
+    if len(cats) > 0:
+        df_f = df_f[df_f['categoria
