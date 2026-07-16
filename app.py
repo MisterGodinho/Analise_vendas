@@ -18,7 +18,7 @@ h3 { font-size: 18px!important; }
 
 st.title("Dashboard Gerencial")
 
-uploaded_file = st.file_uploader("Carregue seu Excel aqui", type=["xlsx"])
+uploaded_file = st.file_uploader("Carregue seu Excel com as abas 2025 e 2026", type=["xlsx"])
 
 def to_excel(df):
     output = BytesIO()
@@ -27,7 +27,9 @@ def to_excel(df):
     return output.getvalue()
 
 if uploaded_file:
-    df = pd.read_excel(uploaded_file, sheet_name=0, header=0)
+    # LER TODAS AS ABAS E JUNTAR
+    todas_abas = pd.read_excel(uploaded_file, sheet_name=None, header=0)
+    df = pd.concat(todas_abas.values(), ignore_index=True)
     df.columns = df.columns.str.strip()
 
     mapa = {
@@ -198,4 +200,4 @@ if uploaded_file:
     else:
         st.error("Nenhum dado encontrado com os filtros selecionados.")
 else:
-    st.info("Faca upload do arquivo Excel")
+    st.info("Faca upload do arquivo Excel com as abas 2025 e 2026")
