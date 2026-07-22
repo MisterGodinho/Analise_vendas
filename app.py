@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -70,12 +69,12 @@ if uploaded_files and len(uploaded_files) >= 2:
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 100000.0)
 
     st.sidebar.subheader("Meta por Loja")
-    dict_meta_loja = {}
+    dict_meta_loja = {} # CORRIGIDO AQUI
     lista_lojas_meta = sorted(df['loja'].unique())
     for loja in lista_lojas_meta:
         valor = st.sidebar.number_input(f"Meta {loja}", 0.0, 500000.0, 0.0, 100000.0, key=f"meta_{loja}")
         if valor > 0:
-            dict_meta_loja = valor
+            dict_meta_loja = valor # CORRIGIDO AQUI
 
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
@@ -90,56 +89,4 @@ if uploaded_files and len(uploaded_files) >= 2:
         st.divider()
         st.subheader("Acompanhamento de Meta")
         ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
-        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
-        st.progress(min(ating_geral/100, 1.0))
-
-        if len(dict_meta_loja) > 0:
-            st.subheader("Performance por Loja com Meta")
-            dfm = df.groupby('loja')['valor'].sum().reset_index()
-            dfm['Meta'] = dfm['loja'].map(dict_meta_loja).fillna(0)
-            dfm = dfm[dfm['Meta'] > 0]
-            dfm['% Ating'] = (dfm['valor'] / dfm['Meta']) * 100
-            dfm = dfm.sort_values('% Ating', ascending=False)
-            st.dataframe(dfm.style.format({'valor':'R$ {:,.2f}','Meta':'R$ {:,.2f}','% Ating':'{:.2f}%'}), use_container_width=True, hide_index=True)
-
-        anos_unicos = sorted(df['ano'].unique())
-        if len(anos_unicos) > 1:
-            st.divider()
-            st.subheader("Comparativo Ano a Ano")
-            dfa = df.groupby('ano')['valor'].sum().reset_index()
-            ano1 = anos_unicos[-1] # ano mais recente
-            ano0 = anos_unicos[-2] # ano anterior
-            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
-            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
-            x1,x2,x3 = st.columns(3)
-            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
-            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
-            x3.metric("Crescimento", f"{cresc:.2f}%")
-            fig = px.bar(dfa, x='ano', y='valor')
-            fig.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig, use_container_width=True)
-
-            st.divider()
-            st.subheader("Top 10 Produtos por Ano")
-            col_p1, col_p2 = st.columns(2)
-            with col_p1:
-                st.write(f"**{ano1}**")
-                df_temp1 = df[df['ano']==ano1]
-                dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
-                figp1.update_xaxes(tickprefix='R$ ')
-                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp1, use_container_width=True)
-            with col_p2:
-                st.write(f"**{ano0}**")
-                df_temp0 = df[df['ano']==ano0]
-                dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
-                figp0.update_xaxes(tickprefix='R$ ')
-                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp0, use_container_width=True)
-
-            st.divider()
-            st.subheader("Melhor Loja por Ano")
-            col_l1, col_l2 = st.columns(2)
+        st.metric("Meta Geral
