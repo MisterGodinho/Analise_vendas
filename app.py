@@ -140,4 +140,49 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.plotly_chart(figp0, use_container_width=True)
 
             st.divider()
-            st.subheader("Melhor Loja por Ano
+            st.subheader("Melhor Loja por Ano") # CORRIGIDO - FECHEI AS ASPAS
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                st.write(f"**{ano1}**")
+                df_temp1 = df[df['ano']==ano1]
+                dfl1 = df_temp1.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                if len(dfl1) > 0:
+                    melhor1 = dfl1.iloc[0]
+                    st.success(f"🏆 **{melhor1['loja']}**: R$ {melhor1['valor']:,.0f}")
+                    figl1 = px.bar(dfl1, x='loja', y='valor', title=f"Top Lojas - {ano1}")
+                    figl1.update_yaxes(tickprefix='R$ ')
+                    figl1.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(figl1, use_container_width=True)
+            with col_l2:
+                st.write(f"**{ano0}**")
+                df_temp0 = df[df['ano']==ano0]
+                dfl0 = df_temp0.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                if len(dfl0) > 0:
+                    melhor0 = dfl0.iloc[0]
+                    st.success(f"🏆 **{melhor0['loja']}**: R$ {melhor0['valor']:,.0f}")
+                    figl0 = px.bar(dfl0, x='loja', y='valor', title=f"Top Lojas - {ano0}")
+                    figl0.update_yaxes(tickprefix='R$ ')
+                    figl0.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(figl0, use_container_width=True)
+
+            st.divider()
+            st.subheader("Ranking Completo: Mais Vendidos → Menos Vendidos")
+            tab1, tab2 = st.tabs(["Ranking de Produtos", "Ranking de Lojas"])
+            with tab1:
+                st.write("**Todos os Produtos ordenados por Faturamento**")
+                df_rank_prod = df.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+                df_rank_prod['% do Total'] = (df_rank_prod['valor'] / df_rank_prod['valor'].sum()) * 100
+                df_rank_prod['Posição'] = range(1, len(df_rank_prod) + 1)
+                st.dataframe(df_rank_prod[['Posição','produto','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
+            with tab2:
+                st.write("**Todas as Lojas ordenadas por Faturamento**")
+                df_rank_loja = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+                df_rank_loja['% do Total'] = (df_rank_loja['valor'] / df_rank_loja['valor'].sum()) * 100
+                df_rank_loja['Posição'] = range(1, len(df_rank_loja) + 1)
+                st.dataframe(df_rank_loja[['Posição','loja','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
+
+            # ==============================================================
+            # ANALISE INTELIGENTE - CORRIGIDO
+            # ==============================================================
+            st.divider()
+            st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTER
