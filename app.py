@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -6,28 +7,36 @@ import calendar
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
 
-# CSS PARA DEIXAR CARA EMPRESARIAL
+# CSS CORPORATIVO
 st.markdown("""
 <style>
     [data-testid="stSidebar"] {
         background-color: #1e293b;
-        color: white;
+        padding-top: 1rem;
     }
-    [data-testid="stSidebar"] h3 {
-        color: white;
+    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label {
+        color: #e2e8f0!important;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
-   .stPills > div {
-        gap: 0.5rem;
+  .stPills {
+        gap: 0.4rem;
     }
-   .stPills button {
-        border-radius: 8px!important;
-        border: 1px solid #334155!important;
+  .stPills button {
+        border-radius: 20px!important;
+        border: 1px solid #475569!important;
         background-color: #334155!important;
-        color: white!important;
+        color: #cbd5e1!important;
+        font-size: 0.8rem;
+        padding: 0.3rem 0.8rem;
     }
-   .stPills button[aria-pressed="true"] {
+  .stPills button[aria-pressed="true"] {
         background-color: #3b82f6!important;
         border: 1px solid #3b82f6!important;
+        color: white!important;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -75,36 +84,50 @@ if uploaded_files and len(uploaded_files) >= 2:
     df['mes_num'] = df['data'].dt.month
     df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x])
 
-    st.sidebar.header("FILTROS")
+    st.sidebar.markdown("### FILTROS")
 
-    # MUDANCA 1: ANO COM PILLS
+    # 1. ANO
     lista_anos = sorted(df['ano'].unique())
-    anos = st.sidebar.pills("Ano", options=lista_anos, default=lista_anos, selection_mode="multi")
+    anos = st.sidebar.pills("Ano", options=lista_anos, default=lista_anos, selection_mode="multi", key="pills_ano")
 
-    # MUDANCA 2: MES COM PILLS E NOME PT-BR
+    # 2. MES EM PORTUGUES
+    MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 
+                7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
     lista_meses = sorted(df['mes_num'].unique())
-    meses_nome = {i: calendar.month_name[i] for i in lista_meses}
-    meses = st.sidebar.pills("Mês", options=lista_meses, default=lista_meses, format_func=lambda x: meses_nome[x], selection_mode="multi")
+    meses = st.sidebar.pills("Mês", options=lista_meses, default=lista_meses, 
+                             format_func=lambda x: MESES_PT[x], selection_mode="multi", key="pills_mes")
 
     df_f = df[df['ano'].isin(anos)].copy()
     df_f = df_f[df_f['mes_num'].isin(meses)].copy()
 
-    # MUDANCA 3: LOJA COM PILLS
+    # 3. LOJA
     lista_lojas = sorted(df_f['loja'].unique())
-    lojas = st.sidebar.pills("Loja", options=lista_lojas, default=lista_lojas, selection_mode="multi")
+    lojas = st.sidebar.pills("Loja", options=lista_lojas, default=lista_lojas, selection_mode="multi", key="pills_loja")
     if len(lojas) > 0:
         df_f = df_f[df_f['loja'].isin(lojas)]
 
-    # MUDANCA 4: CATEGORIA COM PILLS
+    # 4. CATEGORIA
     lista_cats = sorted(df_f['categoria'].unique())
-    cats = st.sidebar.pills("Categoria", options=lista_cats, default=lista_cats, selection_mode="multi")
+    cats = st.sidebar.pills("Categoria", options=lista_cats, default=lista_cats, selection_mode="multi", key="pills_cat")
     if len(cats) > 0:
         df_f = df_f[df_f['categoria'].isin(cats)]
 
+    # BOTAO LIMPAR
+    if st.sidebar.button("Limpar Filtros", use_container_width=True):
+        st.rerun()
+
     st.sidebar.divider()
-    st.sidebar.header("METAS")
+    st.sidebar.markdown("### METAS")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 10000.0)
 
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
-    #... resto do seu código continua igual
+
+    if len(df) > 0:
+        #... aqui continua o resto do seu código normal
+        st.divider()
+        c1, c2 = st.columns(2)
+        fat = df['valor'].sum()
+        c1.metric("Faturamento", f"R$ {fat:,.0f}")
+        c2.metric("Ticket Medio", f"R$ {df['valor'].mean():,.2f}")
+        #... resto
