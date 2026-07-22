@@ -38,45 +38,48 @@ def carregar_dados(files):
     return pd.concat(lista_df, ignore_index=True) if lista_df else pd.DataFrame()
 
 if uploaded_files and len(uploaded_files) >= 2:
-    with st.spinner("Carregando..."):
-        df_original = carregar_dados(uploaded_files)
+    with st.spinner("Carregando 29MB..."):
+        df = carregar_dados(uploaded_files)
 
-    # LIMPEZA FORÇADA
-    df_original['valor'] = pd.to_numeric(df_original['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
-    df_original['data'] = pd.to_datetime(df_original['data'], dayfirst=True, errors='coerce')
-    df_original['loja'] = df_original['loja'].astype(str).str.strip()
-    df_original['produto'] = df_original['produto'].astype(str).str.strip()
-    df_original['categoria'] = df_original['categoria'].astype(str).str.strip()
-    df_original = df_original.dropna(subset=['data', 'valor', 'loja'])
-    df_original['ano'] = df_original['data'].dt.year
-    df_original['mes_num'] = df_original['data'].dt.month
+    # LIMPEZA
+    df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
+    df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
+    df['loja'] = df['loja'].astype(str).str.strip()
+    df['produto'] = df['produto'].astype(str).str.strip()
+    df['categoria'] = df['categoria'].astype(str).str.strip()
+    df = df.dropna(subset=['data', 'valor', 'loja'])
+    df['ano'] = df['data'].dt.year
+    df['mes_num'] = df['data'].dt.month
 
     st.sidebar.header("FILTROS")
     MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
 
-    anos = st.sidebar.pills("ANO", options=sorted(df_original['ano'].unique()), default=sorted(df_original['ano'].unique()), selection_mode="multi")
-    meses = st.sidebar.pills("MÊS", options=sorted(df_original['mes_num'].unique()), default=sorted(df_original['mes_num'].unique()), format_func=lambda x: MESES_PT[x], selection_mode="multi")
+    # PASSO 1: Pega Ano e Mes
+    anos = st.sidebar.pills("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()), selection_mode="multi")
+    meses = st.sidebar.pills("MÊS", options=sorted(df['mes_num'].unique()), default=sorted(df['mes_num'].unique()), format_func=lambda x: MESES_PT[x], selection_mode="multi")
 
-    df_filtrado = df_original[df_original['ano'].isin(anos) & df_original['mes_num'].isin(meses)].copy()
+    # PASSO 2: Cria df_base só com Ano e Mes pra gerar as listas de Loja e Categoria
+    df_base = df[df['ano'].isin(anos) & df['mes_num'].isin(meses)].copy()
 
-    lista_lojas = sorted(df_filtrado['loja'].unique())
+    # PASSO 3: Gera as listas a partir do df_base
+    lista_lojas = sorted(df_base['loja'].unique())
+    lista_cats = sorted(df_base['categoria'].unique())
+
+    # PASSO 4: Pega Loja e Categoria
     lojas = st.sidebar.pills("LOJA", options=lista_lojas, default=lista_lojas, selection_mode="multi")
-    
-    lista_cats = sorted(df_filtrado['categoria'].unique())
     cats = st.sidebar.pills("CATEGORIA", options=lista_cats, default=lista_cats, selection_mode="multi")
 
-    # FORÇA O FILTRO AQUI - SEM IF
-    df_filtrado = df_filtrado[df_filtrado['loja'].isin(lojas)]
-    df_filtrado = df_filtrado[df_filtrado['categoria'].isin(cats)]
+    # PASSO 5: Aplica TODOS os filtros no df_final
+    df_final = df_base[df_base['loja'].isin(lojas) & df_base['categoria'].isin(cats)].copy()
 
-    st.sidebar.metric("Total registros", f"{len(df_filtrado):,}")
+    st.sidebar.metric("Total registros", f"{len(df_final):,}")
 
-    if len(df_filtrado) > 0:
+    if len(df_final) > 0:
         st.divider()
-        fat = df_filtrado['valor'].sum()
+        fat = df_final['valor'].sum()
         st.metric("Faturamento", f"R$ {fat:,.0f}")
 
-        anos_unicos = sorted(df_filtrado['ano'].unique())
+        anos_unicos = sorted(df_final['ano'].unique())
         if len(anos_unicos) > 1:
             ano1 = anos_unicos[-1]
             ano0 = anos_unicos[-2]
@@ -86,13 +89,12 @@ if uploaded_files and len(uploaded_files) >= 2:
             col_l1, col_l2 = st.columns(2)
             with col_l1:
                 st.write(f"**{ano1}**")
-                # USANDO DF_FILTRADO
-                dfl1 = df_filtrado[df_filtrado['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl1 = df_final[df_final['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100 if dfl1['valor'].sum() > 0 else 0
                 st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True)
             with col_l2:
                 st.write(f"**{ano0}**")
-                dfl0 = df_filtrado[df_filtrado['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl0 = df_final[df_final['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100 if dfl0['valor'].sum() > 0 else 0
                 st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True)
         else:
