@@ -94,7 +94,7 @@ if uploaded_files and len(uploaded_files) >= 2:
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 10000.0)
 
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
-    df = df_f
+    df = df_f # <- AGORA DF JÁ É O FILTRADO
 
     if len(df) > 0:
         st.divider()
@@ -132,12 +132,12 @@ if uploaded_files and len(uploaded_files) >= 2:
             col_l1, col_l2 = st.columns(2)
             with col_l1:
                 st.write(f"**{ano1}**")
-                dfl1 = df[df['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl1 = df[df['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10) # USANDO DF FILTRADO
                 dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100
                 st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
             with col_l2:
                 st.write(f"**{ano0}**")
-                dfl0 = df[df['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl0 = df[df['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10) # USANDO DF FILTRADO
                 dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100
                 st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
 
@@ -146,7 +146,7 @@ if uploaded_files and len(uploaded_files) >= 2:
             col_p1, col_p2 = st.columns(2)
             with col_p1:
                 st.write(f"**{ano1}**")
-                df_temp1 = df[df['ano']==ano1]
+                df_temp1 = df[df['ano']==ano1] # USANDO DF FILTRADO
                 dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
                 figp1.update_xaxes(tickprefix='R$ ')
@@ -154,7 +154,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.plotly_chart(figp1, use_container_width=True)
             with col_p2:
                 st.write(f"**{ano0}**")
-                df_temp0 = df[df['ano']==ano0]
+                df_temp0 = df[df['ano']==ano0] # USANDO DF FILTRADO
                 dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
                 figp0.update_xaxes(tickprefix='R$ ')
@@ -209,7 +209,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 else:
                     st.warning(f"Nenhuma categoria cresceu em {MESES_PT[mes_selecionado]} vs ano anterior")
 
-                # 3. PRODUTOS - CODIGO CORRIGIDO
+                # 3. PRODUTOS
                 st.subheader("3. Produtos para Investir vs Recuperar no Mês")
                 col_op1, col_op2 = st.columns(2)
                 with col_op1:
