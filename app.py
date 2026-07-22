@@ -182,7 +182,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.dataframe(df_rank_loja[['Posição','loja','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
 
             # ==============================================================
-            # ANALISE INTELIGENTE - VERSAO CORRIGIDA DEFINITIVA
+            # ANALISE INTELIGENTE - CORRIGIDO DEFINITIVO
             # ==============================================================
             st.divider()
             st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTERIOR")
@@ -190,7 +190,7 @@ if uploaded_files and len(uploaded_files) >= 2:
             df_pivot = df_comp.pivot_table(index=['categoria','produto'], columns='ano', values='valor', aggfunc='sum').fillna(0)
             
             if ano0 in df_pivot.columns and ano1 in df_pivot.columns:
-                # CRIAR DATAFRAME NOVO PARA ANALISE
+                # CORRECAO: PEGAR A COLUNA DO ANO E NAO O DATAFRAME TODO
                 df_analise = df_pivot.reset_index()
                 df_analise['Ano_Anterior'] = df_analise
                 df_analise['Ano_Atual'] = df_analise
