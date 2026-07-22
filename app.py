@@ -3,16 +3,10 @@ import pandas as pd
 import plotly.express as px
 import zipfile
 import calendar
-import locale
-
-try:
-    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
-except:
-    pass
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
 st.title("Analise do Negocio BSB")
-st.caption("Performance de Vendas | 2025-2026 + Insights automaticos")
+st.caption("Performance de Vendas | 2025-2026")
 
 uploaded_files = st.file_uploader("1. Selecione 2025.zip e 2026.zip", type=['zip'], accept_multiple_files=True)
 
@@ -48,12 +42,23 @@ if uploaded_files and len(uploaded_files) >= 2:
     df = df[df['loja']!= '']
     df['ano'] = df['data'].dt.year
     df['mes_num'] = df['data'].dt.month
-    df['mes_nome'] = df['data'].dt.strftime('%B').str.capitalize()
+    df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x]) # NOME DO MÊS
 
-    # FILTROS IGUAIS AOS SEUS...
     st.sidebar.header("Filtros")
+
     lista_anos = sorted(df['ano'].unique())
     anos = st.sidebar.multiselect("Ano", options=lista_anos, default=lista_anos)
-    lista_meses = sorted(df['mes_num'].unique())
-    nomes_meses = {i: calendar.month_name[i] for i in range(1,13)}
-    meses = st.sidebar.multiselect("Mes", options=lista_meses, default=lista_meses, format_func=lambda
+
+    lista_meses = sorted(df['mes_num'].unique()) # FILTRO NOVO DE MÊS
+    meses = st.sidebar.multiselect("Mês", options=lista_meses, default=lista_meses, format_func=lambda x: calendar.month_name[x])
+
+    df_f = df[df['ano'].isin(anos)].copy()
+    df_f = df_f[df_f['mes_num'].isin(meses)].copy() # APLICA FILTRO DE MÊS
+
+    lista_lojas = sorted(df_f['loja'].unique())
+    lojas = st.sidebar.multiselect("Loja", options=lista_lojas, default=lista_lojas)
+    if len(lojas) > 0:
+        df_f = df_f[df_f['loja'].isin(lojas)]
+
+    lista_cats = sorted(df_f['categoria'].unique())
+    cats =
