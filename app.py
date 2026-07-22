@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -42,18 +43,17 @@ if uploaded_files and len(uploaded_files) >= 2:
     df = df[df['loja']!= '']
     df['ano'] = df['data'].dt.year
     df['mes_num'] = df['data'].dt.month
-    df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x]) # NOME DO MÊS
+    df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x])
 
     st.sidebar.header("Filtros")
-
     lista_anos = sorted(df['ano'].unique())
     anos = st.sidebar.multiselect("Ano", options=lista_anos, default=lista_anos)
 
-    lista_meses = sorted(df['mes_num'].unique()) # FILTRO NOVO DE MÊS
+    lista_meses = sorted(df['mes_num'].unique())
     meses = st.sidebar.multiselect("Mês", options=lista_meses, default=lista_meses, format_func=lambda x: calendar.month_name[x])
 
     df_f = df[df['ano'].isin(anos)].copy()
-    df_f = df_f[df_f['mes_num'].isin(meses)].copy() # APLICA FILTRO DE MÊS
+    df_f = df_f[df_f['mes_num'].isin(meses)].copy()
 
     lista_lojas = sorted(df_f['loja'].unique())
     lojas = st.sidebar.multiselect("Loja", options=lista_lojas, default=lista_lojas)
@@ -102,12 +102,13 @@ if uploaded_files and len(uploaded_files) >= 2:
             dfm = dfm.sort_values('% Ating', ascending=False)
             st.dataframe(dfm.style.format({'valor':'R$ {:,.2f}','Meta':'R$ {:,.2f}','% Ating':'{:.2f}%'}), use_container_width=True, hide_index=True)
 
-        if len(df['ano'].unique()) > 1:
+        anos_unicos = sorted(df['ano'].unique())
+        if len(anos_unicos) > 1:
             st.divider()
             st.subheader("Comparativo Ano a Ano")
             dfa = df.groupby('ano')['valor'].sum().reset_index()
-            ano1 = dfa['ano'].max()
-            ano0 = dfa['ano'].min()
+            ano1 = anos_unicos[-1] # ano mais recente
+            ano0 = anos_unicos[-2] # ano anterior
             f1 = dfa[dfa['ano']==ano1]['valor'].sum()
             f0 = dfa[dfa['ano']==ano0]['valor'].sum()
             cresc = ((f1-f0)/f0)*100 if f0>0 else 0
@@ -142,8 +143,3 @@ if uploaded_files and len(uploaded_files) >= 2:
             st.divider()
             st.subheader("Melhor Loja por Ano")
             col_l1, col_l2 = st.columns(2)
-            with col_l1:
-                st.write(f"**{ano1}**")
-                df_temp1 = df[df['ano']==ano1]
-                dfl1 = df_temp1.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                melhor1 = dfl1.iloc[0]
