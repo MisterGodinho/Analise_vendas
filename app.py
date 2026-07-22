@@ -89,7 +89,6 @@ if uploaded_files and len(uploaded_files) >= 2:
         st.divider()
         st.subheader("Acompanhamento de Meta")
         ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
-        # CORRIGIDO: Linha inteira na mesma linha
         st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
         st.progress(min(ating_geral/100, 1.0))
 
@@ -104,49 +103,126 @@ if uploaded_files and len(uploaded_files) >= 2:
 
         anos_unicos = sorted(df['ano'].unique())
         if len(anos_unicos) > 1:
-            try:
-                st.divider()
-                st.subheader("Comparativo Ano a Ano")
-                dfa = df.groupby('ano')['valor'].sum().reset_index()
-                ano1 = anos_unicos[-1]
-                ano0 = anos_unicos[-2]
-                f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-                f0 = dfa[dfa['ano']==ano0]['valor'].sum()
-                cresc = ((f1-f0)/f0)*100 if f0>0 else 0
-                x1,x2,x3 = st.columns(3)
-                x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
-                x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
-                x3.metric("Crescimento", f"{cresc:.2f}%")
-                fig = px.bar(dfa, x='ano', y='valor')
-                fig.update_yaxes(tickprefix='R$ ')
-                st.plotly_chart(fig, use_container_width=True)
+            st.divider()
+            st.subheader("Comparativo Ano a Ano")
+            dfa = df.groupby('ano')['valor'].sum().reset_index()
+            ano1 = anos_unicos[-1]
+            ano0 = anos_unicos[-2]
+            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
+            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
+            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
+            x1,x2,x3 = st.columns(3)
+            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
+            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
+            x3.metric("Crescimento", f"{cresc:.2f}%")
+            fig = px.bar(dfa, x='ano', y='valor')
+            fig.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig, use_container_width=True)
 
-                st.divider()
-                st.subheader("Top 10 Produtos por Ano")
-                col_p1, col_p2 = st.columns(2)
-                with col_p1:
-                    st.write(f"**{ano1}**")
-                    df_temp1 = df[df['ano']==ano1]
-                    dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                    figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
-                    figp1.update_xaxes(tickprefix='R$ ')
-                    figp1.update_layout(yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(figp1, use_container_width=True)
-                with col_p2:
-                    st.write(f"**{ano0}**")
-                    df_temp0 = df[df['ano']==ano0]
-                    dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                    figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
-                    figp0.update_xaxes(tickprefix='R$ ')
-                    figp0.update_layout(yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(figp0, use_container_width=True)
+            st.divider()
+            st.subheader("Top 10 Produtos por Ano")
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                st.write(f"**{ano1}**")
+                df_temp1 = df[df['ano']==ano1]
+                dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
+                figp1.update_xaxes(tickprefix='R$ ')
+                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(figp1, use_container_width=True)
+            with col_p2:
+                st.write(f"**{ano0}**")
+                df_temp0 = df[df['ano']==ano0]
+                dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
+                figp0.update_xaxes(tickprefix='R$ ')
+                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(figp0, use_container_width=True)
 
-                st.divider()
-                st.subheader("Melhor Loja por Ano")
-                col_l1, col_l2 = st.columns(2)
-                with col_l1:
-                    st.write(f"**{ano1}**")
-                    df_temp1 = df[df['ano']==ano1]
-                    dfl1 = df_temp1.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                    if len(dfl1) > 0:
-                        melhor1 = dfl
+            st.divider()
+            st.subheader("Melhor Loja por Ano")
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                st.write(f"**{ano1}**")
+                df_temp1 = df[df['ano']==ano1]
+                dfl1 = df_temp1.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                if len(dfl1) > 0:
+                    melhor1 = dfl1.iloc[0]
+                    st.success(f"🏆 **{melhor1['loja']}**: R$ {melhor1['valor']:,.0f}")
+                    figl1 = px.bar(dfl1, x='loja', y='valor', title=f"Top Lojas - {ano1}")
+                    figl1.update_yaxes(tickprefix='R$ ')
+                    figl1.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(figl1, use_container_width=True)
+            with col_l2:
+                st.write(f"**{ano0}**")
+                df_temp0 = df[df['ano']==ano0]
+                dfl0 = df_temp0.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                if len(dfl0) > 0:
+                    melhor0 = dfl0.iloc[0]
+                    st.success(f"🏆 **{melhor0['loja']}**: R$ {melhor0['valor']:,.0f}")
+                    figl0 = px.bar(dfl0, x='loja', y='valor', title=f"Top Lojas - {ano0}")
+                    figl0.update_yaxes(tickprefix='R$ ')
+                    figl0.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(figl0, use_container_width=True)
+
+            st.divider()
+            st.subheader("Ranking Completo: Mais Vendidos → Menos Vendidos")
+            tab1, tab2 = st.tabs(["Ranking de Produtos", "Ranking de Lojas"])
+            with tab1:
+                st.write("**Todos os Produtos ordenados por Faturamento**")
+                df_rank_prod = df.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+                df_rank_prod['% do Total'] = (df_rank_prod['valor'] / df_rank_prod['valor'].sum()) * 100
+                df_rank_prod['Posição'] = range(1, len(df_rank_prod) + 1)
+                st.dataframe(df_rank_prod[['Posição','produto','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
+            with tab2:
+                st.write("**Todas as Lojas ordenadas por Faturamento**")
+                df_rank_loja = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+                df_rank_loja['% do Total'] = (df_rank_loja['valor'] / df_rank_loja['valor'].sum()) * 100
+                df_rank_loja['Posição'] = range(1, len(df_rank_loja) + 1)
+                st.dataframe(df_rank_loja[['Posição','loja','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
+
+            # ==============================================================
+            # ANALISE INTELIGENTE - COMPARATIVO ANO ANTERIOR
+            # ==============================================================
+            st.divider()
+            st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTERIOR")
+            df_comp = df.groupby(['ano','categoria','produto'])['valor'].sum().reset_index()
+            df_pivot = df_comp.pivot_table(index=['categoria','produto'], columns='ano', values='valor', aggfunc='sum').fillna(0)
+            
+            if ano0 in df_pivot.columns and ano1 in df_pivot.columns:
+                df_pivot['Crescimento %'] = ((df_pivot - df_pivot) / df_pivot.replace(0,1)) * 100
+                df_pivot['Diferenca R$'] = df_pivot - df_pivot
+
+                st.subheader("1. Categorias em Queda - Oportunidade de Crescimento")
+                df_cat_comp = df_pivot.reset_index().groupby('categoria')[[ano0, ano1]].sum()
+                df_cat_comp['Crescimento %'] = ((df_cat_comp - df_cat_comp) / df_cat_comp.replace(0,1)) * 100
+                df_cat_comp['Diferenca R$'] = df_cat_comp - df_cat_comp
+                df_queda_cat = df_cat_comp[(df_cat_comp > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+                
+                if len(df_queda_cat) > 0:
+                    st.warning("Foco de Atencao: Categorias que perderam faturamento vs ano anterior")
+                    st.dataframe(df_queda_cat[[ano0, ano1, 'Diferenca R$', 'Crescimento %']].style.format({ano0:'R$ {:,.0f}', ano1:'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                else:
+                    st.success("Todas as categorias cresceram ou se mantiveram vs ano anterior")
+
+                st.subheader("2. Oportunidade de Aumento na Venda do Produto")
+                col_op1, col_op2 = st.columns(2)
+                with col_op1:
+                    st.write("**A. Produtos para Investir: Cresceram Forte**")
+                    df_investe = df_pivot[(df_pivot['Crescimento %'] > 20) & (df_pivot > 1000)].sort_values('Diferenca R$', ascending=False).head(10)
+                    if len(df_investe) > 0:
+                        st.dataframe(df_investe[[ano0, ano1, 'Diferenca R$', 'Crescimento %']].style.format({ano0:'R$ {:,.0f}', ano1:'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+                    else: st.info("Nenhum produto com crescimento >20%")
+                with col_op2:
+                    st.write("**B. Produtos para Recuperar: Caiu mas era Forte**")
+                    df_recupera = df_pivot[(df_pivot > 5000) & (df_pivot['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
+                    if len(df_recupera) > 0:
+                        st.dataframe(df_recupera[[ano0, ano1, 'Diferenca R$', 'Crescimento %']].style.format({ano0:'R$ {:,.0f}', ano1:'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+                    else: st.info("Nenhum produto forte em queda")
+        else:
+            st.info("Selecione 2 anos no filtro lateral para ver a Analise Inteligente")
+
+        st.divider()
+        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
+else:
+    st.info("Upload dos 2.zip")
