@@ -11,8 +11,8 @@ st.markdown("""
 <style>
     [data-testid="stSidebar"] { background-color: #1e293b; }
     [data-testid="stSidebar"] label { color: #e2e8f0!important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; }
-  .stPills button { border-radius: 20px!important; border: 1px solid #475569!important; background-color: #334155!important; color: #cbd5e1!important; }
-  .stPills button[aria-pressed="true"] { background-color: #3b82f6!important; border: 1px solid #3b82f6!important; color: white!important; font-weight: 600; }
+.stPills button { border-radius: 20px!important; border: 1px solid #475569!important; background-color: #334155!important; color: #cbd5e1!important; }
+.stPills button[aria-pressed="true"] { background-color: #3b82f6!important; border: 1px solid #3b82f6!important; color: white!important; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 # ==========================================================
