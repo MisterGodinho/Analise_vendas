@@ -181,19 +181,15 @@ if uploaded_files and len(uploaded_files) >= 2:
                 df_rank_loja['Posição'] = range(1, len(df_rank_loja) + 1)
                 st.dataframe(df_rank_loja[['Posição','loja','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
 
-            # ==============================================================
-            # ANALISE INTELIGENTE - CORRIGIDO 100%
-            # ==============================================================
+            # ANALISE INTELIGENTE
             st.divider()
             st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTERIOR")
             df_comp = df.groupby(['ano','categoria','produto'])['valor'].sum().reset_index()
             df_pivot = df_comp.pivot_table(index=['categoria','produto'], columns='ano', values='valor', aggfunc='sum').fillna(0)
             
             if ano0 in df_pivot.columns and ano1 in df_pivot.columns:
-                # CORRECAO CRITICA AQUI
                 ano_atual_col = df_pivot
                 ano_ant_col = df_pivot
-                
                 df_pivot['Crescimento %'] = ((ano_atual_col - ano_ant_col) / ano_ant_col.replace(0,1)) * 100
                 df_pivot['Diferenca R$'] = ano_atual_col - ano_ant_col
 
@@ -205,4 +201,21 @@ if uploaded_files and len(uploaded_files) >= 2:
                 
                 if len(df_queda_cat) > 0:
                     st.warning("Foco de Atencao: Categorias que perderam faturamento vs ano anterior")
-                    st.dataframe(df_queda_cat[[ano0, ano1,
+                    st.dataframe(df_queda_cat[[ano0, ano1, 'Diferenca R$', 'Crescimento %']], use_container_width=True) # CORRIGIDO: FECHEI ]]
+                else:
+                    st.success("Todas as categorias cresceram ou se mantiveram vs ano anterior")
+
+                st.subheader("2. Oportunidade de Aumento na Venda do Produto")
+                col_op1, col_op2 = st.columns(2)
+                with col_op1:
+                    st.write("**A. Produtos para Investir: Cresceram Forte**")
+                    df_investe = df_pivot[(df_pivot['Crescimento %'] > 20) & (df_pivot > 1000)].sort_values('Diferenca R$', ascending=False).head(10)
+                    if len(df_investe) > 0:
+                        st.dataframe(df_investe[[ano0, ano1, 'Diferenca R$', 'Crescimento %']]) # CORRIGIDO
+                    else: st.info("Nenhum produto com crescimento >20%")
+                with col_op2:
+                    st.write("**B. Produtos para Recuperar: Caiu mas era Forte**")
+                    df_recupera = df_pivot[(df_pivot > 5000) & (df_pivot['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
+                    if len(df_recupera) > 0:
+                        st.dataframe(df_recupera[[ano0, ano1, 'Diferenca R$', 'Crescimento %']]) # CORRIGIDO
+                    else: st
