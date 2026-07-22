@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -6,41 +5,6 @@ import zipfile
 import calendar
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
-
-# CSS CORPORATIVO
-st.markdown("""
-<style>
-    [data-testid="stSidebar"] {
-        background-color: #1e293b;
-        padding-top: 1rem;
-    }
-    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label {
-        color: #e2e8f0!important;
-        font-weight: 600;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-  .stPills {
-        gap: 0.4rem;
-    }
-  .stPills button {
-        border-radius: 20px!important;
-        border: 1px solid #475569!important;
-        background-color: #334155!important;
-        color: #cbd5e1!important;
-        font-size: 0.8rem;
-        padding: 0.3rem 0.8rem;
-    }
-  .stPills button[aria-pressed="true"] {
-        background-color: #3b82f6!important;
-        border: 1px solid #3b82f6!important;
-        color: white!important;
-        font-weight: 600;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.title("Analise do Negocio BSB")
 st.caption("Performance de Vendas | 2025-2026")
 
@@ -73,7 +37,7 @@ def carregar_dados(files):
     return pd.concat(lista_df, ignore_index=True)
 
 if uploaded_files and len(uploaded_files) >= 2:
-    with st.spinner("Carregando 29MB..."):
+    with st.spinner("Carregando 29MB... Isso pode levar 2-3 min na primeira vez"):
         df = carregar_dados(uploaded_files)
 
     df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
@@ -84,50 +48,166 @@ if uploaded_files and len(uploaded_files) >= 2:
     df['mes_num'] = df['data'].dt.month
     df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x])
 
-    st.sidebar.markdown("### FILTROS")
-
-    # 1. ANO
+    st.sidebar.header("Filtros")
     lista_anos = sorted(df['ano'].unique())
-    anos = st.sidebar.pills("Ano", options=lista_anos, default=lista_anos, selection_mode="multi", key="pills_ano")
+    anos = st.sidebar.multiselect("Ano", options=lista_anos, default=lista_anos)
 
-    # 2. MES EM PORTUGUES
-    MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 
-                7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
     lista_meses = sorted(df['mes_num'].unique())
-    meses = st.sidebar.pills("Mês", options=lista_meses, default=lista_meses, 
-                             format_func=lambda x: MESES_PT[x], selection_mode="multi", key="pills_mes")
+    meses = st.sidebar.multiselect("Mês", options=lista_meses, default=lista_meses, format_func=lambda x: calendar.month_name[x])
 
     df_f = df[df['ano'].isin(anos)].copy()
     df_f = df_f[df_f['mes_num'].isin(meses)].copy()
 
-    # 3. LOJA
     lista_lojas = sorted(df_f['loja'].unique())
-    lojas = st.sidebar.pills("Loja", options=lista_lojas, default=lista_lojas, selection_mode="multi", key="pills_loja")
+    lojas = st.sidebar.multiselect("Loja", options=lista_lojas, default=lista_lojas)
     if len(lojas) > 0:
         df_f = df_f[df_f['loja'].isin(lojas)]
 
-    # 4. CATEGORIA
     lista_cats = sorted(df_f['categoria'].unique())
-    cats = st.sidebar.pills("Categoria", options=lista_cats, default=lista_cats, selection_mode="multi", key="pills_cat")
+    cats = st.sidebar.multiselect("Categoria", options=lista_cats, default=lista_cats)
     if len(cats) > 0:
         df_f = df_f[df_f['categoria'].isin(cats)]
 
-    # BOTAO LIMPAR
-    if st.sidebar.button("Limpar Filtros", use_container_width=True):
-        st.rerun()
-
     st.sidebar.divider()
-    st.sidebar.markdown("### METAS")
-    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 10000.0)
+    st.sidebar.header("Metas")
+    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 100000.0)
 
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
 
     if len(df) > 0:
-        #... aqui continua o resto do seu código normal
         st.divider()
         c1, c2 = st.columns(2)
         fat = df['valor'].sum()
         c1.metric("Faturamento", f"R$ {fat:,.0f}")
         c2.metric("Ticket Medio", f"R$ {df['valor'].mean():,.2f}")
-        #... resto
+
+        st.divider()
+        st.subheader("Acompanhamento de Meta")
+        ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
+        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
+        st.progress(min(ating_geral/100, 1.0))
+
+        anos_unicos = sorted(df['ano'].unique())
+        if len(anos_unicos) > 1:
+            st.divider()
+            st.subheader("Comparativo Ano a Ano")
+            dfa = df.groupby('ano')['valor'].sum().reset_index()
+            ano1 = anos_unicos[-1]
+            ano0 = anos_unicos[-2]
+            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
+            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
+            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
+            x1,x2,x3 = st.columns(3)
+            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
+            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
+            x3.metric("Crescimento", f"{cresc:.2f}%")
+            fig = px.bar(dfa, x='ano', y='valor')
+            fig.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.divider()
+            st.subheader("Ranking Top 10 Lojas")
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                st.write(f"**{ano1}**")
+                dfl1 = df[df['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100
+                st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
+            with col_l2:
+                st.write(f"**{ano0}**")
+                dfl0 = df[df['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100
+                st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
+
+            st.divider()
+            st.subheader("Top 10 Produtos por Ano")
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                st.write(f"**{ano1}**")
+                df_temp1 = df[df['ano']==ano1]
+                dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
+                figp1.update_xaxes(tickprefix='R$ ')
+                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(figp1, use_container_width=True)
+            with col_p2:
+                st.write(f"**{ano0}**")
+                df_temp0 = df[df['ano']==ano0]
+                dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
+                figp0.update_xaxes(tickprefix='R$ ')
+                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(figp0, use_container_width=True)
+
+            # ==============================================================
+            # ANALISE INTELIGENTE - MES A MES COM CATEGORIAS QUE CRESCERAM
+            # ==============================================================
+            st.divider()
+            st.header("ANALISE INTELIGENTE: MES A MES")
+
+            mes_selecionado = st.selectbox("Selecione o Mês para Analisar",
+                                           options=sorted(df['mes_num'].unique()),
+                                           format_func=lambda x: calendar.month_name[x],
+                                           index=0)
+
+            try:
+                df_mes0 = df[(df['ano']==ano0) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes0.columns = ['categoria','produto','Ano_Anterior']
+
+                df_mes1 = df[(df['ano']==ano1) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes1.columns = ['categoria','produto','Ano_Atual']
+
+                df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
+
+                df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
+                df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
+
+                # AGRUPADO POR CATEGORIA
+                df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
+                df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
+                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
+
+                # 1. CATEGORIAS EM QUEDA
+                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]}")
+                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+
+                if len(df_queda_cat) > 0:
+                    st.error(f"{len(df_queda_cat)} categoria(s) perderam faturamento em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                else:
+                    st.success(f"Todas as categorias cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
+
+                # 2. NOVA ABA: CATEGORIAS QUE CRESCERAM
+                st.subheader(f"2. Categorias que Cresceram em {calendar.month_name[mes_selecionado]}")
+                df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
+
+                if len(df_cresce_cat) > 0:
+                    st.success(f"{len(df_cresce_cat)} categoria(s) cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_cresce_cat.head(10).style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True) # Top 10
+                else:
+                    st.warning(f"Nenhuma categoria cresceu em {calendar.month_name[mes_selecionado]} vs ano anterior")
+
+                # 3. PRODUTOS
+                st.subheader("3. Produtos para Investir vs Recuperar no Mês")
+                col_op1, col_op2 = st.columns(2)
+                with col_op1:
+                    st.write("**A. Cresceram Forte >20%**")
+                    df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 500)].sort_values('Diferenca R$', ascending=False).head(10)
+                    if len(df_investe) > 0:
+                        st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+                with col_op2:
+                    st.write("**B. Caiu mas era Forte**")
+                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 2000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
+                    if len(df_recupera) > 0:
+                        st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+
+            except Exception as e:
+                st.error(f"Erro na Analise Inteligente: {e}")
+        else:
+            st.info("Selecione 2 anos no filtro lateral para ver a Analise Inteligente")
+
+        st.divider()
+        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
+else:
+    st.info("Upload dos 2.zip")
