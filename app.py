@@ -106,15 +106,20 @@ if uploaded_files and len(uploaded_files) >= 2:
             fig.update_yaxes(tickprefix='R$ ')
             st.plotly_chart(fig, use_container_width=True)
 
+            # TIREI A EVOLUCAO MENSAL E COLOQUEI RANKING DE LOJAS
             st.divider()
-            st.subheader("Evolucao Mensal: Ano Atual vs Ano Anterior")
-            df_mes = df.groupby(['ano','mes_num'])['valor'].sum().reset_index()
-            df_mes['mes_nome'] = df_mes['mes_num'].apply(lambda x: calendar.month_name[x])
-            fig_mes = px.line(df_mes, x='mes_num', y='valor', color='ano', markers=True,
-                              labels={'mes_num':'Mês','valor':'Faturamento','ano':'Ano'})
-            fig_mes.update_xaxes(tickvals=list(range(1,13)), ticktext=[calendar.month_name[i] for i in range(1,13)])
-            fig_mes.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig_mes, use_container_width=True)
+            st.subheader("Ranking Top 10 Lojas")
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                st.write(f"**{ano1}**")
+                dfl1 = df[df['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100
+                st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
+            with col_l2:
+                st.write(f"**{ano0}**")
+                dfl0 = df[df['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100
+                st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
 
             st.divider()
             st.subheader("Top 10 Produtos por Ano")
@@ -137,7 +142,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.plotly_chart(figp0, use_container_width=True)
 
             # ==============================================================
-            # ANALISE INTELIGENTE - AGORA MES A MES
+            # ANALISE INTELIGENTE - MES A MES
             # ==============================================================
             st.divider()
             st.header("ANALISE INTELIGENTE: MES A MES")
@@ -148,14 +153,12 @@ if uploaded_files and len(uploaded_files) >= 2:
                                            index=0)
 
             try:
-                # FILTRA PELO MES SELECIONADO
                 df_mes0 = df[(df['ano']==ano0) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes0.columns = ['categoria','produto','Ano_Anterior']
 
                 df_mes1 = df[(df['ano']==ano1) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes1.columns = ['categoria','produto','Ano_Atual']
 
-                # JUNTA OS 2 COM MERGE
                 df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
 
                 df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
