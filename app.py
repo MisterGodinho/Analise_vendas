@@ -32,33 +32,4 @@ def carregar_dados(files):
                     lista_df.append(df_temp)
     if len(lista_df) == 0:
         return pd.DataFrame()
-    return pd.concat(lista_df, ignore_index=True)
-
-if uploaded_files and len(uploaded_files) >= 2:
-    df = carregar_dados(uploaded_files)
-    df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
-    df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
-    df = df.dropna(subset=['data', 'valor'])
-    df = df[df['loja']!= '']
-    df['ano'] = df['data'].dt.year
-    df['mes_num'] = df['data'].dt.month
-    df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x]) # NOME DO MÊS
-
-    st.sidebar.header("Filtros")
-
-    lista_anos = sorted(df['ano'].unique())
-    anos = st.sidebar.multiselect("Ano", options=lista_anos, default=lista_anos)
-
-    lista_meses = sorted(df['mes_num'].unique()) # FILTRO NOVO DE MÊS
-    meses = st.sidebar.multiselect("Mês", options=lista_meses, default=lista_meses, format_func=lambda x: calendar.month_name[x])
-
-    df_f = df[df['ano'].isin(anos)].copy()
-    df_f = df_f[df_f['mes_num'].isin(meses)].copy() # APLICA FILTRO DE MÊS
-
-    lista_lojas = sorted(df_f['loja'].unique())
-    lojas = st.sidebar.multiselect("Loja", options=lista_lojas, default=lista_lojas)
-    if len(lojas) > 0:
-        df_f = df_f[df_f['loja'].isin(lojas)]
-
-    lista_cats = sorted(df_f['categoria'].unique())
-    cats =
+    return pd.concat(lista
