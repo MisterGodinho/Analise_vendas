@@ -150,4 +150,85 @@ if uploaded_files and len(uploaded_files) >= 2:
                 dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
                 figp1.update_xaxes(tickprefix='R$ ')
-                figp1.update_layout(y
+                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(figp1, use_container_width=True)
+            with col_p2:
+                st.write(f"**{ano0}**")
+                df_temp0 = df[df['ano']==ano0]
+                dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
+                figp0.update_xaxes(tickprefix='R$ ')
+                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(figp0, use_container_width=True)
+
+            # ==============================================================
+            # ANALISE INTELIGENTE - MES A MES COM CATEGORIAS QUE CRESCERAM
+            # ==============================================================
+            st.divider()
+            st.header("ANALISE INTELIGENTE: MES A MES")
+
+            mes_selecionado = st.selectbox("Selecione o Mês para Analisar",
+                                           options=sorted(df['mes_num'].unique()),
+                                           format_func=lambda x: MESES_PT[x],
+                                           index=0)
+
+            try:
+                df_mes0 = df[(df['ano']==ano0) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes0.columns = ['categoria','produto','Ano_Anterior']
+
+                df_mes1 = df[(df['ano']==ano1) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes1.columns = ['categoria','produto','Ano_Atual']
+
+                df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
+
+                df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
+                df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
+
+                # AGRUPADO POR CATEGORIA
+                df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
+                df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
+                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
+
+                # 1. CATEGORIAS EM QUEDA
+                st.subheader(f"1. Categorias em Queda em {MESES_PT[mes_selecionado]}")
+                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+
+                if len(df_queda_cat) > 0:
+                    st.error(f"{len(df_queda_cat)} categoria(s) perderam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                else:
+                    st.success(f"Todas as categorias cresceram em {MESES_PT[mes_selecionado]} vs ano anterior")
+
+                # 2. CATEGORIAS QUE CRESCERAM
+                st.subheader(f"2. Categorias que Cresceram em {MESES_PT[mes_selecionado]}")
+                df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
+
+                if len(df_cresce_cat) > 0:
+                    st.success(f"{len(df_cresce_cat)} categoria(s) cresceram em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_cresce_cat.head(10).style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                else:
+                    st.warning(f"Nenhuma categoria cresceu em {MESES_PT[mes_selecionado]} vs ano anterior")
+
+                # 3. PRODUTOS - CODIGO CORRIGIDO
+                st.subheader("3. Produtos para Investir vs Recuperar no Mês")
+                col_op1, col_op2 = st.columns(2)
+                with col_op1:
+                    st.write("**A. Cresceram Forte >20%**")
+                    df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 500)].sort_values('Diferenca R$', ascending=False).head(10)
+                    if len(df_investe) > 0:
+                        st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}), use_container_width=True)
+                with col_op2:
+                    st.write("**B. Caiu mas era Forte**")
+                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 2000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
+                    if len(df_recupera) > 0:
+                        st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}), use_container_width=True)
+
+            except Exception as e:
+                st.error(f"Erro na Analise Inteligente: {e}")
+        else:
+            st.info("Selecione 2 anos no filtro lateral para ver a Analise Inteligente")
+
+        st.divider()
+        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
+else:
+    st.info("Upload dos 2.zip")
