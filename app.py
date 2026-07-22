@@ -127,51 +127,49 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.plotly_chart(figp0, use_container_width=True)
 
             # ==============================================================
-            # ANALISE INTELIGENTE - CORRIGIDA
+            # ANALISE INTELIGENTE - VERSAO COM MERGE 100% GARANTIDA
             # ==============================================================
             st.divider()
             st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTERIOR")
             try:
-                df_comp = df.groupby(['ano','categoria','produto'])['valor'].sum().reset_index()
-                df_pivot = df_comp.pivot_table(index=['categoria','produto'], columns='ano', values='valor', aggfunc='sum').fillna(0)
-                df_pivot.columns = [str(col) for col in df_pivot.columns]
+                # SEPARA OS 2 ANOS
+                df_ano0 = df[df['ano']==ano0].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_ano0.columns = ['categoria','produto','Ano_Anterior']
 
-                ano0_str = str(ano0)
-                ano1_str = str(ano1)
+                df_ano1 = df[df['ano']==ano1].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_ano1.columns = ['categoria','produto','Ano_Atual']
 
-                if ano0_str in df_pivot.columns and ano1_str in df_pivot.columns:
-                    df_analise = df_pivot.reset_index()
-                    df_analise['Ano_Anterior'] = df_analise
-                    df_analise['Ano_Atual'] = df_analise
-                    df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
-                    df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
+                # JUNTA OS 2 COM MERGE
+                df_analise = pd.merge(df_ano0, df_ano1, on=['categoria','produto'], how='outer').fillna(0)
 
-                    st.subheader("1. Categorias em Queda")
-                    df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
-                    df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
-                    df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
-                    df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+                df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
+                df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
 
-                    if len(df_queda_cat) > 0:
-                        st.warning("Categorias que perderam faturamento vs ano anterior")
-                        st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
-                    else:
-                        st.success("Todas as categorias cresceram vs ano anterior")
+                st.subheader("1. Categorias em Queda")
+                df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
+                df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
+                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
+                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
 
-                    st.subheader("2. Produtos para Investir vs Recuperar")
-                    col_op1, col_op2 = st.columns(2)
-                    with col_op1:
-                        st.write("**A. Cresceram Forte >20%**")
-                        df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 1000)].sort_values('Diferenca R$', ascending=False).head(10)
-                        if len(df_investe) > 0:
-                            st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
-                    with col_op2:
-                        st.write("**B. Caiu mas era Forte**")
-                        df_recupera = df_analise[(df_analise['Ano_Anterior'] > 5000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
-                        if len(df_recupera) > 0:
-                            st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+                if len(df_queda_cat) > 0:
+                    st.warning("Categorias que perderam faturamento vs ano anterior")
+                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
-                    st.warning(f"Precisa ter dados de {ano0} e {ano1} para comparar")
+                    st.success("Todas as categorias cresceram vs ano anterior")
+
+                st.subheader("2. Produtos para Investir vs Recuperar")
+                col_op1, col_op2 = st.columns(2)
+                with col_op1:
+                    st.write("**A. Cresceram Forte >20%**")
+                    df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 1000)].sort_values('Diferenca R$', ascending=False).head(10)
+                    if len(df_investe) > 0:
+                        st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+                with col_op2:
+                    st.write("**B. Caiu mas era Forte**")
+                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 5000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
+                    if len(df_recupera) > 0:
+                        st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+
             except Exception as e:
                 st.error(f"Erro na Analise Inteligente: {e}")
         else:
