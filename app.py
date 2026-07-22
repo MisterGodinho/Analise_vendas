@@ -5,6 +5,35 @@ import zipfile
 import calendar
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
+
+# ========== ACRESIMO 1: CSS EMPRESARIAL ==========
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] {
+        background-color: #1e293b;
+    }
+    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] label {
+        color: #e2e8f0!important;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+    }
+ .stPills button {
+        border-radius: 20px!important;
+        border: 1px solid #475569!important;
+        background-color: #334155!important;
+        color: #cbd5e1!important;
+        font-size: 0.8rem;
+    }
+ .stPills button[aria-pressed="true"] {
+        background-color: #3b82f6!important;
+        border: 1px solid #3b82f6!important;
+        color: white!important;
+    }
+</style>
+""", unsafe_allow_html=True)
+# =================================================
+
 st.title("Analise do Negocio BSB")
 st.caption("Performance de Vendas | 2025-2026")
 
@@ -48,29 +77,39 @@ if uploaded_files and len(uploaded_files) >= 2:
     df['mes_num'] = df['data'].dt.month
     df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x])
 
-    st.sidebar.header("Filtros")
+    st.sidebar.header("FILTROS")
+    
+    # ========== ACRESIMO 2: TROCAR MULTISELECT POR PILLS ==========
+    MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 
+                7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
+    
     lista_anos = sorted(df['ano'].unique())
-    anos = st.sidebar.multiselect("Ano", options=lista_anos, default=lista_anos)
+    anos = st.sidebar.pills("ANO", options=lista_anos, default=lista_anos, selection_mode="multi")
+    if not anos: anos = lista_anos
 
     lista_meses = sorted(df['mes_num'].unique())
-    meses = st.sidebar.multiselect("Mês", options=lista_meses, default=lista_meses, format_func=lambda x: calendar.month_name[x])
+    meses = st.sidebar.pills("MÊS", options=lista_meses, default=lista_meses, format_func=lambda x: MESES_PT[x], selection_mode="multi")
+    if not meses: meses = lista_meses
+    # ==============================================================
 
     df_f = df[df['ano'].isin(anos)].copy()
     df_f = df_f[df_f['mes_num'].isin(meses)].copy()
 
     lista_lojas = sorted(df_f['loja'].unique())
-    lojas = st.sidebar.multiselect("Loja", options=lista_lojas, default=lista_lojas)
+    lojas = st.sidebar.pills("LOJA", options=lista_lojas, default=lista_lojas, selection_mode="multi")
+    if not lojas: lojas = lista_lojas
     if len(lojas) > 0:
         df_f = df_f[df_f['loja'].isin(lojas)]
 
     lista_cats = sorted(df_f['categoria'].unique())
-    cats = st.sidebar.multiselect("Categoria", options=lista_cats, default=lista_cats)
+    cats = st.sidebar.pills("CATEGORIA", options=lista_cats, default=lista_cats, selection_mode="multi")
+    if not cats: cats = lista_cats
     if len(cats) > 0:
         df_f = df_f[df_f['categoria'].isin(cats)]
 
     st.sidebar.divider()
-    st.sidebar.header("Metas")
-    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 100000.0)
+    st.sidebar.header("METAS")
+    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 10000.0)
 
     st.sidebar.metric("Total registros", f"{len(df_f):,}")
     df = df_f
@@ -82,6 +121,7 @@ if uploaded_files and len(uploaded_files) >= 2:
         c1.metric("Faturamento", f"R$ {fat:,.0f}")
         c2.metric("Ticket Medio", f"R$ {df['valor'].mean():,.2f}")
 
+        #... TODO O RESTO DO SEU CÓDIGO CONTINUA EXATAMENTE IGUAL DAQUI PRA BAIXO
         st.divider()
         st.subheader("Acompanhamento de Meta")
         ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
@@ -148,7 +188,7 @@ if uploaded_files and len(uploaded_files) >= 2:
 
             mes_selecionado = st.selectbox("Selecione o Mês para Analisar",
                                            options=sorted(df['mes_num'].unique()),
-                                           format_func=lambda x: calendar.month_name[x],
+                                           format_func=lambda x: MESES_PT[x],
                                            index=0)
 
             try:
@@ -169,24 +209,24 @@ if uploaded_files and len(uploaded_files) >= 2:
                 df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
 
                 # 1. CATEGORIAS EM QUEDA
-                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]}")
+                st.subheader(f"1. Categorias em Queda em {MESES_PT[mes_selecionado]}")
                 df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
 
                 if len(df_queda_cat) > 0:
-                    st.error(f"{len(df_queda_cat)} categoria(s) perderam faturamento em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.error(f"{len(df_queda_cat)} categoria(s) perderam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
                     st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
-                    st.success(f"Todas as categorias cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.success(f"Todas as categorias cresceram em {MESES_PT[mes_selecionado]} vs ano anterior")
 
                 # 2. NOVA ABA: CATEGORIAS QUE CRESCERAM
-                st.subheader(f"2. Categorias que Cresceram em {calendar.month_name[mes_selecionado]}")
+                st.subheader(f"2. Categorias que Cresceram em {MESES_PT[mes_selecionado]}")
                 df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
 
                 if len(df_cresce_cat) > 0:
-                    st.success(f"{len(df_cresce_cat)} categoria(s) cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.success(f"{len(df_cresce_cat)} categoria(s) cresceram em {MESES_PT[mes_selecionado]} vs ano anterior")
                     st.dataframe(df_cresce_cat.head(10).style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True) # Top 10
                 else:
-                    st.warning(f"Nenhuma categoria cresceu em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.warning(f"Nenhuma categoria cresceu em {MESES_PT[mes_selecionado]} vs ano anterior")
 
                 # 3. PRODUTOS
                 st.subheader("3. Produtos para Investir vs Recuperar no Mês")
@@ -195,19 +235,4 @@ if uploaded_files and len(uploaded_files) >= 2:
                     st.write("**A. Cresceram Forte >20%**")
                     df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 500)].sort_values('Diferenca R$', ascending=False).head(10)
                     if len(df_investe) > 0:
-                        st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
-                with col_op2:
-                    st.write("**B. Caiu mas era Forte**")
-                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 2000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
-                    if len(df_recupera) > 0:
-                        st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
-
-            except Exception as e:
-                st.error(f"Erro na Analise Inteligente: {e}")
-        else:
-            st.info("Selecione 2 anos no filtro lateral para ver a Analise Inteligente")
-
-        st.divider()
-        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
-else:
-    st.info("Upload dos 2.zip")
+                        st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0
