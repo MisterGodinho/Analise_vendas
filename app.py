@@ -182,14 +182,16 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.dataframe(df_rank_loja[['Posição','loja','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
 
             # ==============================================================
-            # ANALISE INTELIGENTE - COM TRATAMENTO DE ERRO
+            # ANALISE INTELIGENTE - VERSAO FINAL CORRIGIDA
             # ==============================================================
             st.divider()
             st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTERIOR")
             try:
                 df_comp = df.groupby(['ano','categoria','produto'])['valor'].sum().reset_index()
                 df_pivot = df_comp.pivot_table(index=['categoria','produto'], columns='ano', values='valor', aggfunc='sum').fillna(0)
-                df_pivot.columns = df_pivot.columns.astype(str) # FORCA VIRAR TEXTO
+                
+                # CORRECAO: ACHATAR AS COLUNAS DO MULTIINDEX
+                df_pivot.columns = [str(col) for col in df_pivot.columns]
                 
                 ano0_str = str(ano0)
                 ano1_str = str(ano1)
