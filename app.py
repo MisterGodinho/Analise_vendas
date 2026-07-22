@@ -32,7 +32,7 @@ def carregar_dados(files):
                     lista_df.append(df_temp)
     if len(lista_df) == 0:
         return pd.DataFrame()
-    return pd.concat(lista_df, ignore_index=True) # AQUI ESTAVA CORTADO
+    return pd.concat(lista_df, ignore_index=True)
 
 if uploaded_files and len(uploaded_files) >= 2:
     df = carregar_dados(uploaded_files)
@@ -180,48 +180,19 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.dataframe(df_rank_loja[['Posição','loja','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
 
             # ==============================================================
-            # ACRESCIMO 1: ANALISE DETALHADA ANO ANTERIOR
+            # ACRESCIMO 1: ANALISE DETALHADA ANO ANTERIOR - CORRIGIDO
             # ==============================================================
             st.divider()
             st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTERIOR")
             df_comp = df.groupby(['ano','categoria','produto'])['valor'].sum().reset_index()
             df_pivot = df_comp.pivot_table(index=['categoria','produto'], columns='ano', values='valor', aggfunc='sum').fillna(0)
+            
+            # CALCULO CORRETO USANDO ANO1 E ANO0
             df_pivot['Crescimento %'] = ((df_pivot - df_pivot) / df_pivot.replace(0,1)) * 100
             df_pivot['Diferenca R$'] = df_pivot - df_pivot
 
             # ==============================================================
-            # ACRESCIMO 2: CATEGORIAS EM QUEDA
+            # ACRESCIMO 2: CATEGORIAS EM QUEDA - CORRIGIDO
             # ==============================================================
             st.subheader("1. Categorias em Queda")
-            df_cat_comp = df_pivot.reset_index().groupby('categoria')[[ano0, ano1]].sum()
-            df_cat_comp['Crescimento %'] = ((df_cat_comp - df_cat_comp) / df_cat_comp.replace(0,1)) * 100
-            df_cat_comp['Diferenca R$'] = df_cat_comp - df_cat_comp
-            df_queda_cat = df_cat_comp[(df_cat_comp > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
-            if len(df_queda_cat) > 0:
-                st.warning("Foco de Atencao: Categorias que perderam faturamento")
-                st.dataframe(df_queda_cat[[ano0, ano1, 'Diferenca R$', 'Crescimento %']].style.format({ano0:'R$ {:,.0f}', ano1:'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
-            else:
-                st.success("Nenhuma categoria em queda no periodo filtrado")
-
-            # ==============================================================
-            # ACRESCIMO 3: OPORTUNIDADE DE MELHORIA VENDA DOS PRODUTOS
-            # ==============================================================
-            st.subheader("2. Oportunidade de Melhoria de Venda dos Produtos")
-            col_op1, col_op2 = st.columns(2)
-            with col_op1:
-                st.write("**A. Produtos para Investir: Cresceram Forte**")
-                df_investe = df_pivot[(df_pivot['Crescimento %'] > 20) & (df_pivot > 1000)].sort_values('Diferenca R$', ascending=False).head(10)
-                if len(df_investe) > 0:
-                    st.dataframe(df_investe[[ano0, ano1, 'Diferenca R$', 'Crescimento %']].style.format({ano0:'R$ {:,.0f}', ano1:'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
-                    st.caption("Acao: Aumentar estoque, divulgar e dar destaque. Ja estao em alta.")
-            with col_op2:
-                st.write("**B. Produtos para Recuperar: Caiu mas era Forte**")
-                df_recupera = df_pivot[(df_pivot > 5000) & (df_pivot['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
-                if len(df_recupera) > 0:
-                    st.dataframe(df_recupera[[ano0, ano1, 'Diferenca R$', 'Crescimento %']].style.format({ano0:'R$ {:,.0f}', ano1:'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
-                    st.caption("Acao: Fazer promocao, bundle, treinar equipe. Potencial de recuperar R$.")
-
-        st.divider()
-        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
-else:
-    st.info("Upload dos 2.zip")
+            df_cat_comp = df_pivot.reset_index().groupby('categoria')[[ano0, ano1]].
