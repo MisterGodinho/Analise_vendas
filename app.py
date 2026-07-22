@@ -142,4 +142,42 @@ if uploaded_files and len(uploaded_files) >= 2:
                 if ano0_str in df_pivot.columns and ano1_str in df_pivot.columns:
                     df_analise = df_pivot.reset_index()
                     df_analise['Ano_Anterior'] = df_analise
-                    df_analise['Ano_Atual'] = df_anal
+                    df_analise['Ano_Atual'] = df_analise
+                    df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
+                    df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
+
+                    st.subheader("1. Categorias em Queda")
+                    df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
+                    df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
+                    df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
+                    df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+
+                    if len(df_queda_cat) > 0:
+                        st.warning("Categorias que perderam faturamento vs ano anterior")
+                        st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                    else:
+                        st.success("Todas as categorias cresceram vs ano anterior")
+
+                    st.subheader("2. Produtos para Investir vs Recuperar")
+                    col_op1, col_op2 = st.columns(2)
+                    with col_op1:
+                        st.write("**A. Cresceram Forte >20%**")
+                        df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 1000)].sort_values('Diferenca R$', ascending=False).head(10)
+                        if len(df_investe) > 0:
+                            st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+                    with col_op2:
+                        st.write("**B. Caiu mas era Forte**")
+                        df_recupera = df_analise[(df_analise['Ano_Anterior'] > 5000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
+                        if len(df_recupera) > 0:
+                            st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
+                else:
+                    st.warning(f"Precisa ter dados de {ano0} e {ano1} para comparar")
+            except Exception as e:
+                st.error(f"Erro na Analise Inteligente: {e}")
+        else:
+            st.info("Selecione 2 anos no filtro lateral para ver a Analise Inteligente")
+
+        st.divider()
+        st.markdown("<center>Performance de Vendas | 2025-2026</center>", unsafe_allow_html=True)
+else:
+    st.info("Upload dos 2.zip")
