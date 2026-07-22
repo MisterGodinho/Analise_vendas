@@ -140,7 +140,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.plotly_chart(figp0, use_container_width=True)
 
             st.divider()
-            st.subheader("Melhor Loja por Ano") # CORRIGIDO - FECHEI AS ASPAS
+            st.subheader("Melhor Loja por Ano")
             col_l1, col_l2 = st.columns(2)
             with col_l1:
                 st.write(f"**{ano1}**")
@@ -169,20 +169,4 @@ if uploaded_files and len(uploaded_files) >= 2:
             st.subheader("Ranking Completo: Mais Vendidos → Menos Vendidos")
             tab1, tab2 = st.tabs(["Ranking de Produtos", "Ranking de Lojas"])
             with tab1:
-                st.write("**Todos os Produtos ordenados por Faturamento**")
-                df_rank_prod = df.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False)
-                df_rank_prod['% do Total'] = (df_rank_prod['valor'] / df_rank_prod['valor'].sum()) * 100
-                df_rank_prod['Posição'] = range(1, len(df_rank_prod) + 1)
-                st.dataframe(df_rank_prod[['Posição','produto','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
-            with tab2:
-                st.write("**Todas as Lojas ordenadas por Faturamento**")
-                df_rank_loja = df.groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False)
-                df_rank_loja['% do Total'] = (df_rank_loja['valor'] / df_rank_loja['valor'].sum()) * 100
-                df_rank_loja['Posição'] = range(1, len(df_rank_loja) + 1)
-                st.dataframe(df_rank_loja[['Posição','loja','valor','% do Total']].style.format({'valor':'R$ {:,.2f}','% do Total':'{:.2f}%'}), use_container_width=True, hide_index=True, height=400)
-
-            # ==============================================================
-            # ANALISE INTELIGENTE - CORRIGIDO
-            # ==============================================================
-            st.divider()
-            st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTER
+                st.write("**Todos os Produtos orden
