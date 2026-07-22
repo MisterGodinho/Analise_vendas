@@ -22,6 +22,7 @@ st.caption("Performance de Vendas | 2025-2026")
 
 uploaded_files = st.file_uploader("1. Selecione 2025.zip e 2026.zip", type=['zip'], accept_multiple_files=True)
 
+@st.cache_data
 def carregar_dados(files):
     lista_df = []
     progress = st.progress(0)
@@ -50,31 +51,31 @@ def carregar_dados(files):
 
 if uploaded_files and len(uploaded_files) >= 2:
     with st.spinner("Carregando 29MB... Isso pode levar 2-3 min na primeira vez"):
-        df = carregar_dados(uploaded_files)
+        df_original = carregar_dados(uploaded_files) # NOME MUDOU PARA NAO CONFUNDIR
 
-    df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
-    df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
-    df = df.dropna(subset=['data', 'valor'])
-    df = df[df['loja']!= '']
-    df['ano'] = df['data'].dt.year
-    df['mes_num'] = df['data'].dt.month
-    df['mes_nome'] = df['data'].dt.month.apply(lambda x: calendar.month_name[x])
+    df_original['valor'] = pd.to_numeric(df_original['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
+    df_original['data'] = pd.to_datetime(df_original['data'], dayfirst=True, errors='coerce')
+    df_original = df_original.dropna(subset=['data', 'valor'])
+    df_original = df_original[df_original['loja']!= '']
+    df_original['ano'] = df_original['data'].dt.year
+    df_original['mes_num'] = df_original['data'].dt.month
+    df_original['mes_nome'] = df_original['data'].dt.month.apply(lambda x: calendar.month_name[x])
 
     st.sidebar.header("FILTROS")
     
     MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho',
                 7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
 
-    lista_anos = sorted(df['ano'].unique())
+    lista_anos = sorted(df_original['ano'].unique())
     anos = st.sidebar.pills("ANO", options=lista_anos, default=lista_anos, selection_mode="multi")
     if not anos: anos = lista_anos
 
-    lista_meses = sorted(df['mes_num'].unique())
+    lista_meses = sorted(df_original['mes_num'].unique())
     meses = st.sidebar.pills("MÊS", options=lista_meses, default=lista_meses, format_func=lambda x: MESES_PT[x], selection_mode="multi")
     if not meses: meses = lista_meses
 
-    # 1. APLICA FILTRO DE ANO E MES PRIMEIRO
-    df_filtrado = df[df['ano'].isin(anos)].copy()
+    # APLICA FILTROS EM CIMA DO ORIGINAL
+    df_filtrado = df_original[df_original['ano'].isin(anos)].copy()
     df_filtrado = df_filtrado[df_filtrado['mes_num'].isin(meses)].copy()
 
     lista_lojas = sorted(df_filtrado['loja'].unique())
@@ -85,7 +86,6 @@ if uploaded_files and len(uploaded_files) >= 2:
     cats = st.sidebar.pills("CATEGORIA", options=lista_cats, default=lista_cats, selection_mode="multi")
     if not cats: cats = lista_cats
 
-    # 2. APLICA FILTRO DE LOJA E CATEGORIA DEPOIS
     df_filtrado = df_filtrado[df_filtrado['loja'].isin(lojas)]
     df_filtrado = df_filtrado[df_filtrado['categoria'].isin(cats)]
 
@@ -94,16 +94,14 @@ if uploaded_files and len(uploaded_files) >= 2:
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 10000.0)
 
     st.sidebar.metric("Total registros", f"{len(df_filtrado):,}")
-    
-    # IMPORTANTE: USAR df_filtrado EM TODO LUGAR ABAIXO
-    df = df_filtrado 
 
-    if len(df) > 0:
+    # USAR SEMPRE df_filtrado DAQUI PRA BAIXO
+    if len(df_filtrado) > 0:
         st.divider()
         c1, c2 = st.columns(2)
-        fat = df['valor'].sum()
+        fat = df_filtrado['valor'].sum()
         c1.metric("Faturamento", f"R$ {fat:,.0f}")
-        c2.metric("Ticket Medio", f"R$ {df['valor'].mean():,.2f}")
+        c2.metric("Ticket Medio", f"R$ {df_filtrado['valor'].mean():,.2f}")
 
         st.divider()
         st.subheader("Acompanhamento de Meta")
@@ -111,11 +109,11 @@ if uploaded_files and len(uploaded_files) >= 2:
         st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
         st.progress(min(ating_geral/100, 1.0))
 
-        anos_unicos = sorted(df['ano'].unique())
+        anos_unicos = sorted(df_filtrado['ano'].unique())
         if len(anos_unicos) > 1:
             st.divider()
             st.subheader("Comparativo Ano a Ano")
-            dfa = df.groupby('ano')['valor'].sum().reset_index()
+            dfa = df_filtrado.groupby('ano')['valor'].sum().reset_index()
             ano1 = anos_unicos[-1]
             ano0 = anos_unicos[-2]
             f1 = dfa[dfa['ano']==ano1]['valor'].sum()
@@ -134,12 +132,12 @@ if uploaded_files and len(uploaded_files) >= 2:
             col_l1, col_l2 = st.columns(2)
             with col_l1:
                 st.write(f"**{ano1}**")
-                dfl1 = df[df['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl1 = df_filtrado[df_filtrado['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10) # AQUI ERA O ERRO
                 dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100
                 st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
             with col_l2:
                 st.write(f"**{ano0}**")
-                dfl0 = df[df['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl0 = df_filtrado[df_filtrado['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10) # AQUI ERA O ERRO
                 dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100
                 st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
 
@@ -148,7 +146,7 @@ if uploaded_files and len(uploaded_files) >= 2:
             col_p1, col_p2 = st.columns(2)
             with col_p1:
                 st.write(f"**{ano1}**")
-                df_temp1 = df[df['ano']==ano1]
+                df_temp1 = df_filtrado[df_filtrado['ano']==ano1]
                 dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
                 figp1.update_xaxes(tickprefix='R$ ')
@@ -156,7 +154,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.plotly_chart(figp1, use_container_width=True)
             with col_p2:
                 st.write(f"**{ano0}**")
-                df_temp0 = df[df['ano']==ano0]
+                df_temp0 = df_filtrado[df_filtrado['ano']==ano0]
                 dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
                 figp0.update_xaxes(tickprefix='R$ ')
@@ -167,13 +165,13 @@ if uploaded_files and len(uploaded_files) >= 2:
             st.divider()
             st.header("ANALISE INTELIGENTE: MES A MES")
             mes_selecionado = st.selectbox("Selecione o Mês para Analisar",
-                                           options=sorted(df['mes_num'].unique()),
+                                           options=sorted(df_filtrado['mes_num'].unique()),
                                            format_func=lambda x: MESES_PT[x],
                                            index=0)
             try:
-                df_mes0 = df[(df['ano']==ano0) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes0 = df_filtrado[(df_filtrado['ano']==ano0) & (df_filtrado['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes0.columns = ['categoria','produto','Ano_Anterior']
-                df_mes1 = df[(df['ano']==ano1) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes1 = df_filtrado[(df_filtrado['ano']==ano1) & (df_filtrado['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes1.columns = ['categoria','produto','Ano_Atual']
                 df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
                 df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
