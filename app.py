@@ -166,7 +166,9 @@ if uploaded_files and len(uploaded_files) >= 2:
                     st.plotly_chart(figl0, use_container_width=True)
 
             st.divider()
-            st.subheader("Ranking Completo: Mais Vendidos → Menos Vendidos")
+            st.subheader("Ranking Completo: Mais Vendidos para Menos Vendidos")
             tab1, tab2 = st.tabs(["Ranking de Produtos", "Ranking de Lojas"])
             with tab1:
-                st.write("**Todos os Produtos orden
+                st.write("**Todos os Produtos ordenados por Faturamento**") # CORRIGIDO
+                df_rank_prod = df.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False)
+                df_rank_prod['% do Total'] = (df_rank_prod['valor'] / df_rank_prod['valor'].sum()) *
