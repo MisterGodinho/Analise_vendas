@@ -54,23 +54,24 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.sidebar.header("FILTROS")
     MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
 
-    # PASSO 1: Pega Ano e Mes
+    # 1. FILTROS GLOBAIS
     anos = st.sidebar.pills("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()), selection_mode="multi")
     meses = st.sidebar.pills("MÊS", options=sorted(df['mes_num'].unique()), default=sorted(df['mes_num'].unique()), format_func=lambda x: MESES_PT[x], selection_mode="multi")
 
-    # PASSO 2: Cria df_base só com Ano e Mes pra gerar as listas de Loja e Categoria
-    df_base = df[df['ano'].isin(anos) & df['mes_num'].isin(meses)].copy()
+    # 2. LISTAS SEMPRE VEM DO DF ORIGINAL - NUNCA FICAM VAZIAS
+    lista_lojas = sorted(df['loja'].unique())
+    lista_cats = sorted(df['categoria'].unique())
 
-    # PASSO 3: Gera as listas a partir do df_base
-    lista_lojas = sorted(df_base['loja'].unique())
-    lista_cats = sorted(df_base['categoria'].unique())
-
-    # PASSO 4: Pega Loja e Categoria
     lojas = st.sidebar.pills("LOJA", options=lista_lojas, default=lista_lojas, selection_mode="multi")
     cats = st.sidebar.pills("CATEGORIA", options=lista_cats, default=lista_cats, selection_mode="multi")
 
-    # PASSO 5: Aplica TODOS os filtros no df_final
-    df_final = df_base[df_base['loja'].isin(lojas) & df_base['categoria'].isin(cats)].copy()
+    # 3. SÓ AGORA APLICA TODOS OS FILTROS JUNTOS
+    df_final = df[
+        df['ano'].isin(anos) & 
+        df['mes_num'].isin(meses) &
+        df['loja'].isin(lojas) & 
+        df['categoria'].isin(cats)
+    ].copy()
 
     st.sidebar.metric("Total registros", f"{len(df_final):,}")
 
@@ -98,6 +99,8 @@ if uploaded_files and len(uploaded_files) >= 2:
                 dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100 if dfl0['valor'].sum() > 0 else 0
                 st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True)
         else:
-            st.warning("Selecione 2 anos para ver o Ranking")
+            st.info("Selecione 2 anos para ver o Ranking e Comparativo")
+    else:
+        st.warning("Nenhum dado encontrado com os filtros selecionados. Tente marcar mais meses ou lojas.")
 else:
     st.info("Upload dos 2.zip")
