@@ -107,6 +107,16 @@ if uploaded_files and len(uploaded_files) >= 2:
             st.plotly_chart(fig, use_container_width=True)
 
             st.divider()
+            st.subheader("Evolucao Mensal: Ano Atual vs Ano Anterior")
+            df_mes = df.groupby(['ano','mes_num'])['valor'].sum().reset_index()
+            df_mes['mes_nome'] = df_mes['mes_num'].apply(lambda x: calendar.month_name[x])
+            fig_mes = px.line(df_mes, x='mes_num', y='valor', color='ano', markers=True,
+                              labels={'mes_num':'Mês','valor':'Faturamento','ano':'Ano'})
+            fig_mes.update_xaxes(tickvals=list(range(1,13)), ticktext=[calendar.month_name[i] for i in range(1,13)])
+            fig_mes.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig_mes, use_container_width=True)
+
+            st.divider()
             st.subheader("Top 10 Produtos por Ano")
             col_p1, col_p2 = st.columns(2)
             with col_p1:
@@ -127,46 +137,52 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.plotly_chart(figp0, use_container_width=True)
 
             # ==============================================================
-            # ANALISE INTELIGENTE - VERSAO COM MERGE 100% GARANTIDA
+            # ANALISE INTELIGENTE - AGORA MES A MES
             # ==============================================================
             st.divider()
-            st.header("ANALISE INTELIGENTE: ANO ATUAL vs ANO ANTERIOR")
-            try:
-                # SEPARA OS 2 ANOS
-                df_ano0 = df[df['ano']==ano0].groupby(['categoria','produto'])['valor'].sum().reset_index()
-                df_ano0.columns = ['categoria','produto','Ano_Anterior']
+            st.header("ANALISE INTELIGENTE: MES A MES")
 
-                df_ano1 = df[df['ano']==ano1].groupby(['categoria','produto'])['valor'].sum().reset_index()
-                df_ano1.columns = ['categoria','produto','Ano_Atual']
+            mes_selecionado = st.selectbox("Selecione o Mês para Analisar",
+                                           options=sorted(df['mes_num'].unique()),
+                                           format_func=lambda x: calendar.month_name[x],
+                                           index=0)
+
+            try:
+                # FILTRA PELO MES SELECIONADO
+                df_mes0 = df[(df['ano']==ano0) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes0.columns = ['categoria','produto','Ano_Anterior']
+
+                df_mes1 = df[(df['ano']==ano1) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes1.columns = ['categoria','produto','Ano_Atual']
 
                 # JUNTA OS 2 COM MERGE
-                df_analise = pd.merge(df_ano0, df_ano1, on=['categoria','produto'], how='outer').fillna(0)
+                df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
 
                 df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
                 df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
 
-                st.subheader("1. Categorias em Queda")
+                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]}")
                 df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
                 df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
                 df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
                 df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
 
                 if len(df_queda_cat) > 0:
-                    st.warning("Categorias que perderam faturamento vs ano anterior")
+                    st.warning(f"Categorias que perderam faturamento em {calendar.month_name[mes_selecionado]} vs ano anterior")
                     st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
-                    st.success("Todas as categorias cresceram vs ano anterior")
+                    st.success(f"Todas as categorias cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
 
-                st.subheader("2. Produtos para Investir vs Recuperar")
+                st.subheader("2. Produtos para Investir vs Recuperar no Mês")
                 col_op1, col_op2 = st.columns(2)
                 with col_op1:
                     st.write("**A. Cresceram Forte >20%**")
-                    df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 1000)].sort_values('Diferenca R$', ascending=False).head(10)
+                    df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 500)].sort_values('Diferenca R$', ascending=False).head(10)
                     if len(df_investe) > 0:
                         st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
                 with col_op2:
                     st.write("**B. Caiu mas era Forte**")
-                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 5000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
+                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 2000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
                     if len(df_recupera) > 0:
                         st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
 
