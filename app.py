@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import zipfile
 import calendar
 
@@ -22,12 +21,10 @@ def carregar_dados(files):
                     continue
                 with z.open(nome_arquivo) as f:
                     if '.xlsx' in nome_arquivo:
-                        # F=Tienda, G=Fecha, I=Articulo, J=Categoria, O=Importe a, N=Cantidad
-                        df_temp = pd.read_excel(f, sheet_name=0, header=0, usecols='F,G,I,J,O,N')
-                        df_temp.columns = ['loja', 'data', 'produto', 'categoria', 'valor_cheio', 'qtd']
+                        df_temp = pd.read_excel(f, sheet_name=0, header=0, usecols='F,G,I,J,Q')
+                        df_temp.columns = ['loja', 'data', 'produto', 'categoria', 'valor']
                     elif '.csv' in nome_arquivo:
-                        # CSV: F=5, G=6, I=8, J=9, O=14, N=13
-                        df_temp = pd.read_csv(f, sep=';', usecols=[5,6,8,9,14,13], names=['loja','data','produto','categoria','valor_cheio','qtd'], header=0, encoding='latin-1', on_bad_lines='skip')
+                        df_temp = pd.read_csv(f, sep=';', usecols=[5,6,8,9,16], names=['loja','data','produto','categoria','valor'], header=0, encoding='latin-1', on_bad_lines='skip')
                     else:
                         continue
                     df_temp['loja'] = df_temp['loja'].astype(str).str.strip()
@@ -43,10 +40,9 @@ if uploaded_files and len(uploaded_files) >= 2:
     with st.spinner("Carregando 29MB... Isso pode levar 2-3 min na primeira vez"):
         df = carregar_dados(uploaded_files)
 
-    df['valor_cheio'] = pd.to_numeric(df['valor_cheio'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
-    df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0)
+    df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce')
     df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
-    df = df.dropna(subset=['data', 'valor_cheio'])
+    df = df.dropna(subset=['data', 'valor'])
     df = df[df['loja']!= '']
     df['ano'] = df['data'].dt.year
     df['mes_num'] = df['data'].dt.month
@@ -81,12 +77,10 @@ if uploaded_files and len(uploaded_files) >= 2:
 
     if len(df) > 0:
         st.divider()
-        c1, c2, c3 = st.columns(3)
-        fat = df['valor_cheio'].sum()
-        qtd_total = df['qtd'].sum()
-        c1.metric("Faturamento Cheio", f"R$ {fat:,.0f}")
-        c2.metric("Ticket Medio", f"R$ {df['valor_cheio'].mean():,.2f}")
-        c3.metric("Qtd Vendida", f"{qtd_total:,.0f} un")
+        c1, c2 = st.columns(2)
+        fat = df['valor'].sum()
+        c1.metric("Faturamento", f"R$ {fat:,.0f}")
+        c2.metric("Ticket Medio", f"R$ {df['valor'].mean():,.2f}")
 
         st.divider()
         st.subheader("Acompanhamento de Meta")
@@ -98,17 +92,17 @@ if uploaded_files and len(uploaded_files) >= 2:
         if len(anos_unicos) > 1:
             st.divider()
             st.subheader("Comparativo Ano a Ano")
-            dfa = df.groupby('ano')['valor_cheio'].sum().reset_index()
+            dfa = df.groupby('ano')['valor'].sum().reset_index()
             ano1 = anos_unicos[-1]
             ano0 = anos_unicos[-2]
-            f1 = dfa[dfa['ano']==ano1]['valor_cheio'].sum()
-            f0 = dfa[dfa['ano']==ano0]['valor_cheio'].sum()
+            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
+            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
             cresc = ((f1-f0)/f0)*100 if f0>0 else 0
             x1,x2,x3 = st.columns(3)
             x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
             x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
             x3.metric("Crescimento", f"{cresc:.2f}%")
-            fig = px.bar(dfa, x='ano', y='valor_cheio')
+            fig = px.bar(dfa, x='ano', y='valor')
             fig.update_yaxes(tickprefix='R$ ')
             st.plotly_chart(fig, use_container_width=True)
 
@@ -117,56 +111,33 @@ if uploaded_files and len(uploaded_files) >= 2:
             col_l1, col_l2 = st.columns(2)
             with col_l1:
                 st.write(f"**{ano1}**")
-                dfl1 = df[df['ano']==ano1].groupby('loja')['valor_cheio'].sum().reset_index().sort_values('valor_cheio', ascending=False).head(10)
-                dfl1['% Total'] = (dfl1['valor_cheio'] / dfl1['valor_cheio'].sum()) * 100
-                st.dataframe(dfl1.style.format({'valor_cheio':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
+                dfl1 = df[df['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100
+                st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
             with col_l2:
                 st.write(f"**{ano0}**")
-                dfl0 = df[df['ano']==ano0].groupby('loja')['valor_cheio'].sum().reset_index().sort_values('valor_cheio', ascending=False).head(10)
-                dfl0['% Total'] = (dfl0['valor_cheio'] / dfl0['valor_cheio'].sum()) * 100
-                st.dataframe(dfl0.style.format({'valor_cheio':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
+                dfl0 = df[df['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100
+                st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
 
-            # ==============================================================
-            # TOP 10 PRODUTOS COM BOTAO + VALOR NA BARRA
-            # ==============================================================
             st.divider()
             st.subheader("Top 10 Produtos por Ano")
-
-            modo_visao = st.radio("Mostrar por:", ["Valor Cheio R$", "Quantidade Vendida"], horizontal=True, key="top10_toggle")
-
             col_p1, col_p2 = st.columns(2)
             with col_p1:
                 st.write(f"**{ano1}**")
                 df_temp1 = df[df['ano']==ano1]
-                if modo_visao == "Valor Cheio R$":
-                    dfp1 = df_temp1.groupby('produto').agg({'valor_cheio':'sum'}).reset_index().sort_values('valor_cheio', ascending=False).head(10)
-                    dfp1['label'] = dfp1['valor_cheio'].apply(lambda x: f'R$ {x:,.0f}')
-                    y_col = 'valor_cheio'
-                else:
-                    dfp1 = df_temp1.groupby('produto').agg({'qtd':'sum'}).reset_index().sort_values('qtd', ascending=False).head(10)
-                    dfp1['label'] = dfp1['qtd'].apply(lambda x: f'{x:,.0f} un')
-                    y_col = 'qtd'
-
-                figp1 = go.Figure()
-                figp1.add_trace(go.Bar(y=dfp1['produto'], x=dfp1[y_col], orientation='h', text=dfp1['label'], textposition='outside'))
-                figp1.update_layout(title=f"Top 10 - {ano1}", yaxis={'categoryorder':'total ascending'}, height=500)
+                dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
+                figp1.update_xaxes(tickprefix='R$ ')
+                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(figp1, use_container_width=True)
-
             with col_p2:
                 st.write(f"**{ano0}**")
                 df_temp0 = df[df['ano']==ano0]
-                if modo_visao == "Valor Cheio R$":
-                    dfp0 = df_temp0.groupby('produto').agg({'valor_cheio':'sum'}).reset_index().sort_values('valor_cheio', ascending=False).head(10)
-                    dfp0['label'] = dfp0['valor_cheio'].apply(lambda x: f'R$ {x:,.0f}')
-                    y_col = 'valor_cheio'
-                else:
-                    dfp0 = df_temp0.groupby('produto').agg({'qtd':'sum'}).reset_index().sort_values('qtd', ascending=False).head(10)
-                    dfp0['label'] = dfp0['qtd'].apply(lambda x: f'{x:,.0f} un')
-                    y_col = 'qtd'
-
-                figp0 = go.Figure()
-                figp0.add_trace(go.Bar(y=dfp0['produto'], x=dfp0[y_col], orientation='h', text=dfp0['label'], textposition='outside'))
-                figp0.update_layout(title=f"Top 10 - {ano0}", yaxis={'categoryorder':'total ascending'}, height=500)
+                dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
+                figp0.update_xaxes(tickprefix='R$ ')
+                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(figp0, use_container_width=True)
 
             # ==============================================================
@@ -180,47 +151,40 @@ if uploaded_files and len(uploaded_files) >= 2:
                                            format_func=lambda x: calendar.month_name[x],
                                            index=0)
 
-            tipo_analise = st.radio("Analisar por:", ["Valor Cheio", "Quantidade"], horizontal=True, key="analise_toggle")
-
             try:
-                coluna_analise = 'valor_cheio' if tipo_analise == "Valor Cheio" else 'qtd'
-                sufixo = 'R$' if tipo_analise == "Valor Cheio" else ''
-
-                df_mes0 = df[(df['ano']==ano0) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])[coluna_analise].sum().reset_index()
+                df_mes0 = df[(df['ano']==ano0) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes0.columns = ['categoria','produto','Ano_Anterior']
 
-                df_mes1 = df[(df['ano']==ano1) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])[coluna_analise].sum().reset_index()
+                df_mes1 = df[(df['ano']==ano1) & (df['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes1.columns = ['categoria','produto','Ano_Atual']
 
                 df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
 
-                df_analise['Diferenca'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
-                df_analise['Crescimento %'] = (df_analise['Diferenca'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
+                df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
+                df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
 
                 # AGRUPADO POR CATEGORIA
                 df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
-                df_cat_comp['Diferenca'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
-                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
+                df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
+                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
 
                 # 1. CATEGORIAS EM QUEDA
-                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]} - {tipo_analise}")
-                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca')
+                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]}")
+                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
 
                 if len(df_queda_cat) > 0:
-                    st.error(f"{len(df_queda_cat)} categoria(s) perderam {tipo_analise.lower()} em {calendar.month_name[mes_selecionado]} vs ano anterior")
-                    formato = {'Ano_Anterior':f'{sufixo} {{:,.0f}}', 'Ano_Atual':f'{sufixo} {{:,.0f}}', 'Diferenca':f'{sufixo} {{:,.0f}}', 'Crescimento %':'{{:.2f}}%'}
-                    st.dataframe(df_queda_cat.style.format(formato), use_container_width=True)
+                    st.error(f"{len(df_queda_cat)} categoria(s) perderam faturamento em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
-                    st.success(f"Nenhuma categoria caiu em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.success(f"Todas as categorias cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
 
-                # 2. CATEGORIAS QUE CRESCERAM - NOVA ABA
-                st.subheader(f"2. Categorias que Cresceram em {calendar.month_name[mes_selecionado]} - {tipo_analise}")
-                df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca', ascending=False)
+                # 2. NOVA ABA: CATEGORIAS QUE CRESCERAM
+                st.subheader(f"2. Categorias que Cresceram em {calendar.month_name[mes_selecionado]}")
+                df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
 
                 if len(df_cresce_cat) > 0:
                     st.success(f"{len(df_cresce_cat)} categoria(s) cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
-                    formato = {'Ano_Anterior':f'{sufixo} {{:,.0f}}', 'Ano_Atual':f'{sufixo} {{:,.0f}}', 'Diferenca':f'{sufixo} {{:,.0f}}', 'Crescimento %':'{{:.2f}}%'}
-                    st.dataframe(df_cresce_cat.head(10).style.format(formato), use_container_width=True) # Top 10
+                    st.dataframe(df_cresce_cat.head(10).style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True) # Top 10
                 else:
                     st.warning(f"Nenhuma categoria cresceu em {calendar.month_name[mes_selecionado]} vs ano anterior")
 
@@ -229,16 +193,14 @@ if uploaded_files and len(uploaded_files) >= 2:
                 col_op1, col_op2 = st.columns(2)
                 with col_op1:
                     st.write("**A. Cresceram Forte >20%**")
-                    df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 10)].sort_values('Diferenca', ascending=False).head(10)
+                    df_investe = df_analise[(df_analise['Crescimento %'] > 20) & (df_analise['Ano_Atual'] > 500)].sort_values('Diferenca R$', ascending=False).head(10)
                     if len(df_investe) > 0:
-                        formato = {'Ano_Anterior':f'{sufixo} {{:,.0f}}', 'Ano_Atual':f'{sufixo} {{:,.0f}}', 'Diferenca':f'{sufixo} {{:,.0f}}', 'Crescimento %':'{{:.1f}}%'}
-                        st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca','Crescimento %']].style.format(formato))
+                        st.dataframe(df_investe[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
                 with col_op2:
                     st.write("**B. Caiu mas era Forte**")
-                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 50) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca').head(10)
+                    df_recupera = df_analise[(df_analise['Ano_Anterior'] > 2000) & (df_analise['Crescimento %'] < -10)].sort_values('Diferenca R$').head(10)
                     if len(df_recupera) > 0:
-                        formato = {'Ano_Anterior':f'{sufixo} {{:,.0f}}', 'Ano_Atual':f'{sufixo} {{:,.0f}}', 'Diferenca':f'{sufixo} {{:,.0f}}', 'Crescimento %':'{{:.1f}}%'}
-                        st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca','Crescimento %']].style.format(formato))
+                        st.dataframe(df_recupera[['categoria','produto','Ano_Anterior','Ano_Atual','Diferenca R$','Crescimento %']].style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.1f}%'}))
 
             except Exception as e:
                 st.error(f"Erro na Analise Inteligente: {e}")
