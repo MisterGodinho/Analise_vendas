@@ -93,16 +93,4 @@ if uploaded_files:
         st.subheader("🎯 Acompanhamento de Meta")
         ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
         st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
-        st.progress(min(ating_geral/100, 1.0))
-
-        anos_unicos = sorted(df_f['ano'].unique())
-
-        if len(anos_unicos) >= 2:
-            ano1 = anos_unicos[-1]
-            ano0 = anos_unicos[-2]
-
-            st.divider()
-            st.subheader("📈 Comparativo Ano a Ano")
-            dfa = df_f.groupby('ano')['valor'].sum().reset_index()
-            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-            f0 = dfa[dfa['ano']==ano0]['valor
+        st.progress(min(ating_geral
