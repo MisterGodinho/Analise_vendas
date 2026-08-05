@@ -12,9 +12,9 @@ st.markdown("""
 <style>
 [data-testid="stSidebar"] { background-color: #1e293b; }
 [data-testid="stSidebar"] label { color: #e2e8f0!important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; }
-div[data-baseweb="tag"] { background-color: #ef4444!important; border-radius: 16px!important; }
+div[data-baseweb="tag"] { background-color: #ef4444!important; border-radius: 16px!important; } /* Vermelho */
 div[data-baseweb="tag"] span { color: white!important; font-weight: 600; }
-.stMetric { background-color: #1e293b; padding: 15px; border-radius: 10px; border: 1px solid #334155; }
+.stMetric { background-color: #1e293b; padding: 15px; border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -23,7 +23,7 @@ st.caption("Performance de Vendas | 2025-2026")
 
 uploaded_files = st.file_uploader("1. Selecione 2025.zip e 2026.zip", type=['zip'], accept_multiple_files=True)
 
-@st.cache_data(show_spinner="Carregando e otimizando...")
+@st.cache_data(show_spinner="Carregando e otimizando 29MB...")
 def carregar_dados(files):
     lista_df = []
     progress = st.progress(0)
@@ -58,7 +58,7 @@ def carregar_dados(files):
     df['mes_nome'] = df['mes_num'].map({1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'})
     return df
 
-if uploaded_files:
+if uploaded_files and len(uploaded_files) >= 2:
     df = carregar_dados(uploaded_files)
     st.success(f"✅ Carregado! {len(df):,} linhas | Memória: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
 
@@ -71,15 +71,19 @@ if uploaded_files:
     meses_nome = st.sidebar.multiselect("MÊS", options=sorted(df['mes_nome'].unique()), default=sorted(df['mes_nome'].unique()))
     df_mes = df_ano[df_ano['mes_nome'].isin(meses_nome)] if meses_nome else df_ano
 
+    # FILTRO EM CASCATA: Loja e Categoria só mostram o que tem nos filtros acima
     lojas = st.sidebar.multiselect("LOJA", options=sorted(df_mes['loja'].unique()), default=sorted(df_mes['loja'].unique()))
     df_loja = df_mes[df_mes['loja'].isin(lojas)] if lojas else df_mes
 
     cats = st.sidebar.multiselect("CATEGORIA", options=sorted(df_loja['categoria'].unique()), default=sorted(df_loja['categoria'].unique()))
     df_f = df_loja[df_loja['categoria'].isin(cats)] if cats else df_loja
 
+    # Converte mes_nome de volta pra mes_num pra filtrar
+    df_f = df_f[df_f['mes_num'].isin(df_f[df_f['mes_nome'].isin(meses_nome)]['mes_num'].unique())] if meses_nome else df_f
+
     st.sidebar.divider()
     st.sidebar.header("METAS")
-    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 10000000.0, 1500000.0, 100000.0)
+    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 5000000.0, 1500000.0, 100000.0)
     st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
 
     if len(df_f) > 0:
@@ -97,8 +101,7 @@ if uploaded_files:
         st.progress(min(ating_geral/100, 1.0))
 
         anos_unicos = sorted(df_f['ano'].unique())
-
-        if len(anos_unicos) >= 2:
+        if len(anos_unicos) > 1:
             ano1 = anos_unicos[-1]
             ano0 = anos_unicos[-2]
 
@@ -111,7 +114,7 @@ if uploaded_files:
             x1,x2,x3 = st.columns(3)
             x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
             x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
-            x3.metric("Crescimento", f"{cresc:.2f}%", delta=f"{cresc:.2f}%")
+            x3.metric("Crescimento", f"{cresc:.2f}%", delta_color="normal")
             fig = px.bar(dfa, x='ano', y='valor', text='valor')
             fig.update_traces(texttemplate='R$ %{y:,.0f}')
             fig.update_yaxes(tickprefix='R$ ')
@@ -138,7 +141,8 @@ if uploaded_files:
                 st.write(f"**{ano1}**")
                 df_temp1 = df_f[df_f['ano']==ano1]
                 dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfp1['Valor R$'] = dfp1['valor'].apply(lambda x: f"R$ {x:,.2f}") # VALOR VISIVEL
+                # VALOR VISIVEL EM R$
+                dfp1['Valor R$'] = dfp1['valor'].apply(lambda x: f"R$ {x:,.2f}")
                 st.dataframe(dfp1[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
                 figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano1}")
                 figp1.update_traces(textposition='outside')
@@ -149,7 +153,8 @@ if uploaded_files:
                 st.write(f"**{ano0}**")
                 df_temp0 = df_f[df_f['ano']==ano0]
                 dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfp0['Valor R$'] = dfp0['valor'].apply(lambda x: f"R$ {x:,.2f}") # VALOR VISIVEL
+                # VALOR VISIVEL EM R$
+                dfp0['Valor R$'] = dfp0['valor'].apply(lambda x: f"R$ {x:,.2f}")
                 st.dataframe(dfp0[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
                 figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano0}")
                 figp0.update_traces(textposition='outside')
@@ -185,7 +190,7 @@ if uploaded_files:
                 st.error(f"Erro na Analise Inteligente: {e}")
 
         elif len(anos_unicos) == 1:
-            st.info(f"Modo 1 Ano: {anos_unicos[0]}")
+            st.info("Selecione 2 anos no filtro lateral para ver Comparativo e Analise Inteligente")
             st.subheader(f"🔥 Top 10 Produtos - {anos_unicos[0]}")
             df_temp = df_f[df_f['ano']==anos_unicos[0]]
             dfp = df_temp.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
