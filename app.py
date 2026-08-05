@@ -79,7 +79,7 @@ if uploaded_files:
     st.sidebar.divider()
     st.sidebar.header("METAS")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 10000000.0, 1500000.0, 100000.0)
-    st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}") # CORRIGIDO - FECHEI AS ASPAS
+    st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
 
     if len(df_f) > 0:
         st.divider()
@@ -92,4 +92,54 @@ if uploaded_files:
         st.divider()
         st.subheader("🎯 Acompanhamento de Meta")
         ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
-        st.metric("Meta Geral", f"R$ {meta_geral:,.0f
+        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%") # CORRIGIDO - FECHEI O }
+        st.progress(min(ating_geral/100, 1.0))
+
+        anos_unicos = sorted(df_f['ano'].unique())
+
+        if len(anos_unicos) >= 2:
+            ano1 = anos_unicos[-1]
+            ano0 = anos_unicos[-2]
+
+            st.divider()
+            st.subheader("📈 Comparativo Ano a Ano")
+            dfa = df_f.groupby('ano')['valor'].sum().reset_index()
+            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
+            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
+            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
+            x1,x2,x3 = st.columns(3)
+            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
+            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
+            x3.metric("Crescimento", f"{cresc:.2f}%", delta=f"{cresc:.2f}%")
+            fig = px.bar(dfa, x='ano', y='valor', text='valor')
+            fig.update_traces(texttemplate='R$ %{y:,.0f}')
+            fig.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.divider()
+            st.subheader("🏆 Ranking Top 10 Lojas")
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                st.write(f"**{ano1}**")
+                dfl1 = df_f[df_f['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl1.insert(0, 'Rank', range(1, len(dfl1) + 1))
+                dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100 if dfl1['valor'].sum() > 0 else 0
+                st.dataframe(dfl1[['Rank','loja','valor','% Total']].style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}).rename(columns={'loja':'Loja'}), use_container_width=True, height=400)
+            with col_l2:
+                st.write(f"**{ano0}**")
+                dfl0 = df_f[df_f['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfl0.insert(0, 'Rank', range(1, len(dfl0) + 1))
+                dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100 if dfl0['valor'].sum() > 0 else 0
+                st.dataframe(dfl0[['Rank','loja','valor','% Total']].style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}).rename(columns={'loja':'Loja'}), use_container_width=True, height=400)
+
+            st.divider()
+            st.subheader("🔥 Top 10 Produtos por Ano")
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                st.write(f"**{ano1}**")
+                df_temp1 = df_f[df_f['ano']==ano1]
+                dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
+                dfp1.insert(0, 'Rank', range(1, len(dfp1) + 1))
+                dfp1['Valor R$'] = dfp1['valor'].apply(lambda x: f"R$ {x:,.2f}")
+                st.dataframe(dfp1[['Rank', 'produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
+                figp1 = px.bar(dfp1, x='valor', y
