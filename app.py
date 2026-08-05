@@ -81,7 +81,7 @@ if uploaded_files:
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 10000000.0, 1500000.0, 100000.0)
     st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
 
-    if len(df_f) > 0:  # AQUI ESTAVA O ERRO - FALTAVA O )
+    if len(df_f) > 0:
         st.divider()
         c1, c2, c3 = st.columns(3)
         fat = df_f['valor'].sum()
@@ -108,17 +108,4 @@ if uploaded_files:
             f0 = dfa[dfa['ano']==ano0]['valor'].sum()
             cresc = ((f1-f0)/f0)*100 if f0>0 else 0
             x1,x2,x3 = st.columns(3)
-            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
-            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
-            x3.metric("Crescimento", f"{cresc:.2f}%", delta=f"{cresc:.2f}%")
-            fig = px.bar(dfa, x='ano', y='valor', text='valor')
-            fig.update_traces(texttemplate='R$ %{y:,.0f}')
-            fig.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig, use_container_width=True)
-
-            st.divider()
-            st.subheader("🏆 Ranking Top 10 Lojas")
-            col_l1, col_l2 = st.columns(2)
-            with col_l1:
-                st.write(f"**{ano1}**")
-                dfl1 = df_f[df_f['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).
+            x1.metric(f"Ano {ano1}", f"R$ {
