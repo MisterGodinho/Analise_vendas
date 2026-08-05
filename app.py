@@ -6,20 +6,9 @@ import calendar
 import gc
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
-
-st.markdown("""
-<style>
-[data-testid="stSidebar"] { background-color: #1e293b; }
-[data-testid="stSidebar"] label { color: #e2e8f0!important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; }
-div[data-baseweb="tag"] { background-color: #ef4444!important; border-radius: 16px!important; }
-div[data-baseweb="tag"] span { color: white!important; font-weight: 600; }
-.stMetric { background-color: #1e293b; padding: 15px; border-radius: 10px; border: 1px solid #334155; }
-</style>
-""", unsafe_allow_html=True)
-
+st.markdown("""<style>[data-testid="stSidebar"] { background-color: #1e293b; }[data-testid="stSidebar"] label { color: #e2e8f0!important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; }div[data-baseweb="tag"] { background-color: #ef4444!important; border-radius: 16px!important; }div[data-baseweb="tag"] span { color: white!important; font-weight: 600; }.stMetric { background-color: #1e293b; padding: 15px; border-radius: 10px; border: 1px solid #334155; }</style>""", unsafe_allow_html=True)
 st.title("📊 Analise do Negocio BSB")
 st.caption("Performance de Vendas | 2025-2026")
-
 uploaded_files = st.file_uploader("1. Selecione 2025.zip e 2026.zip", type=['zip'], accept_multiple_files=True)
 
 @st.cache_data(show_spinner="Carregando e otimizando...")
@@ -41,7 +30,6 @@ def carregar_dados(files):
                     lista_df.append(df_temp)
         progress.progress((i+1)/total)
     if len(lista_df) == 0: return pd.DataFrame()
-
     df = pd.concat(lista_df, ignore_index=True); del lista_df; gc.collect()
     df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce').astype('float32')
     df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
@@ -71,7 +59,6 @@ if uploaded_files:
     st.sidebar.header("METAS")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 10000000.0, 1500000.0, 100000.0)
     st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
-
     if len(df_f) > 0:
         st.divider()
         c1, c2, c3 = st.columns(3)
@@ -85,7 +72,6 @@ if uploaded_files:
         st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
         st.progress(min(ating_geral/100, 1.0))
         anos_unicos = sorted(df_f['ano'].unique())
-
         if len(anos_unicos) >= 2:
             ano1 = anos_unicos[-1]
             ano0 = anos_unicos[-2]
@@ -93,4 +79,8 @@ if uploaded_files:
             st.subheader("📈 Comparativo Ano a Ano")
             dfa = df_f.groupby('ano')['valor'].sum().reset_index()
             f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-            f0 = dfa[dfa['ano']==ano
+            f0 = dfa[dfa['ano']==ano0]['valor'].sum() # CORRIGIDO AQUI
+            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
+            x1,x2,x3 = st.columns(3)
+            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
+            x2.metric(f"Ano {ano0}", f"R$ {
