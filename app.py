@@ -138,7 +138,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.write(f"**{ano1}**")
                 df_temp1 = df_f[df_f['ano']==ano1]
                 dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                # ADICIONADO: coluna de valor formatado
+                # VALOR VISIVEL EM R$
                 dfp1['Valor R$'] = dfp1['valor'].apply(lambda x: f"R$ {x:,.2f}")
                 st.dataframe(dfp1[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
                 figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano1}")
@@ -150,7 +150,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.write(f"**{ano0}**")
                 df_temp0 = df_f[df_f['ano']==ano0]
                 dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                # ADICIONADO: coluna de valor formatado
+                # VALOR VISIVEL EM R$
                 dfp0['Valor R$'] = dfp0['valor'].apply(lambda x: f"R$ {x:,.2f}")
                 st.dataframe(dfp0[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
                 figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano0}")
@@ -164,4 +164,30 @@ if uploaded_files and len(uploaded_files) >= 2:
             mes_selecionado = st.selectbox("Selecione o Mês para Analisar", options=sorted(df_f['mes_num'].unique()), format_func=lambda x: calendar.month_name[x], index=0)
 
             try:
-                df
+                df_mes0 = df_f[(df_f['ano']==ano0) & (df_f['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes0.columns = ['categoria','produto','Ano_Anterior']
+                df_mes1 = df_f[(df_f['ano']==ano1) & (df_f['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes1.columns = ['categoria','produto','Ano_Atual']
+                df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
+                df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
+                df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
+
+                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]}")
+                df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
+                df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
+                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
+                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+                if len(df_queda_cat) > 0:
+                    st.warning(f"Categorias que perderam faturamento em {calendar.month_name[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                else:
+                    st.success(f"Todas as categorias cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
+
+            except Exception as e:
+                st.error(f"Erro na Analise Inteligente: {e}")
+        else:
+            st.info("Selecione 2 anos no filtro lateral para ver a Analise Inteligente")
+    else:
+        st.warning("Nenhum dado com os filtros selecionados")
+else:
+    st.info("Upload dos 2.zip")
