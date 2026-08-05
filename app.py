@@ -45,11 +45,11 @@ def carregar_dados(files):
 
 if uploaded_files:
     df = carregar_dados(uploaded_files)
-    st.success(f"✅ Carregado! {len(df):,} linhas | Memória: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
+    st.success(f"✅ Carregado! {len(df):,} linhas | Memoria: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
     st.sidebar.header("FILTROS")
     anos = st.sidebar.multiselect("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_ano = df[df['ano'].isin(anos)] if anos else df
-    meses_nome = st.sidebar.multiselect("MÊS", options=sorted(df['mes_nome'].unique()), default=sorted(df['mes_nome'].unique()))
+    meses_nome = st.sidebar.multiselect("MES", options=sorted(df['mes_nome'].unique()), default=sorted(df['mes_nome'].unique()))
     df_mes = df_ano[df_ano['mes_nome'].isin(meses_nome)] if meses_nome else df_ano
     lojas = st.sidebar.multiselect("LOJA", options=sorted(df_mes['loja'].unique()), default=sorted(df_mes['loja'].unique()))
     df_loja = df_mes[df_mes['loja'].isin(lojas)] if lojas else df_mes
@@ -79,8 +79,7 @@ if uploaded_files:
             st.subheader("📈 Comparativo Ano a Ano")
             dfa = df_f.groupby('ano')['valor'].sum().reset_index()
             f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-            f0 = dfa[dfa['ano']==ano0]['valor'].sum() # CORRIGIDO AQUI
+            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
             cresc = ((f1-f0)/f0)*100 if f0>0 else 0
             x1,x2,x3 = st.columns(3)
-            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
-            x2.metric(f"Ano {ano0}", f"R$ {
+            x1.metric(f"Ano {ano1}", f"R$ {f1:,.
