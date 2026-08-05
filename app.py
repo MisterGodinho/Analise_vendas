@@ -41,9 +41,9 @@ def carregar_dados(files):
                     lista_df.append(df_temp)
         progress.progress((i+1)/total)
     if len(lista_df) == 0: return pd.DataFrame()
-    
+
     df = pd.concat(lista_df, ignore_index=True); del lista_df; gc.collect()
-    
+
     # OTIMIZAÇÃO PESADA
     df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce').astype('float32')
     df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
@@ -62,21 +62,21 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.success(f"Carregado! {len(df):,} linhas | Memória: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
 
     st.sidebar.header("FILTROS")
-    
+
     # FILTROS DINAMICOS ESTILO POWER BI
     anos = st.sidebar.multiselect("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_ano = df[df['ano'].isin(anos)] if anos else df
-    
+
     meses_nome = st.sidebar.multiselect("MÊS", options=sorted(df['mes_nome'].unique()), default=sorted(df['mes_nome'].unique()))
     df_mes = df_ano[df_ano['mes_nome'].isin(meses_nome)] if meses_nome else df_ano
-    
+
     # FILTRO EM CASCATA: Loja e Categoria só mostram o que tem nos filtros acima
     lojas = st.sidebar.multiselect("LOJA", options=sorted(df_mes['loja'].unique()), default=sorted(df_mes['loja'].unique()))
     df_loja = df_mes[df_mes['loja'].isin(lojas)] if lojas else df_mes
-    
+
     cats = st.sidebar.multiselect("CATEGORIA", options=sorted(df_loja['categoria'].unique()), default=sorted(df_loja['categoria'].unique()))
     df_f = df_loja[df_loja['categoria'].isin(cats)] if cats else df_loja
-    
+
     # Converte mes_nome de volta pra mes_num pra filtrar
     df_f = df_f[df_f['mes_num'].isin(df_f[df_f['mes_nome'].isin(meses_nome)]['mes_num'].unique())] if meses_nome else df_f
 
@@ -84,7 +84,7 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.sidebar.header("METAS")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 500000.0, 150000.0, 10000.0)
     st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
-    
+
     if len(df_f) > 0:
         st.divider()
         c1, c2 = st.columns(2)
@@ -102,7 +102,7 @@ if uploaded_files and len(uploaded_files) >= 2:
         if len(anos_unicos) > 1:
             ano1 = anos_unicos[-1]
             ano0 = anos_unicos[-2]
-            
+
             st.divider()
             st.subheader("Comparativo Ano a Ano")
             dfa = df_f.groupby('ano')['valor'].sum().reset_index()
@@ -138,7 +138,11 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.write(f"**{ano1}**")
                 df_temp1 = df_f[df_f['ano']==ano1]
                 dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano1}")
+                # ADICIONADO: coluna de valor formatado
+                dfp1['Valor R$'] = dfp1['valor'].apply(lambda x: f"R$ {x:,.2f}")
+                st.dataframe(dfp1[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
+                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano1}")
+                figp1.update_traces(textposition='outside')
                 figp1.update_xaxes(tickprefix='R$ ')
                 figp1.update_layout(yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(figp1, use_container_width=True)
@@ -146,7 +150,11 @@ if uploaded_files and len(uploaded_files) >= 2:
                 st.write(f"**{ano0}**")
                 df_temp0 = df_f[df_f['ano']==ano0]
                 dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', title=f"Top 10 - {ano0}")
+                # ADICIONADO: coluna de valor formatado
+                dfp0['Valor R$'] = dfp0['valor'].apply(lambda x: f"R$ {x:,.2f}")
+                st.dataframe(dfp0[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
+                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano0}")
+                figp0.update_traces(textposition='outside')
                 figp0.update_xaxes(tickprefix='R$ ')
                 figp0.update_layout(yaxis={'categoryorder':'total ascending'})
                 st.plotly_chart(figp0, use_container_width=True)
@@ -156,30 +164,4 @@ if uploaded_files and len(uploaded_files) >= 2:
             mes_selecionado = st.selectbox("Selecione o Mês para Analisar", options=sorted(df_f['mes_num'].unique()), format_func=lambda x: calendar.month_name[x], index=0)
 
             try:
-                df_mes0 = df_f[(df_f['ano']==ano0) & (df_f['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
-                df_mes0.columns = ['categoria','produto','Ano_Anterior']
-                df_mes1 = df_f[(df_f['ano']==ano1) & (df_f['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
-                df_mes1.columns = ['categoria','produto','Ano_Atual']
-                df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
-                df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
-                df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
-
-                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]}")
-                df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
-                df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
-                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
-                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
-                if len(df_queda_cat) > 0:
-                    st.warning(f"Categorias que perderam faturamento em {calendar.month_name[mes_selecionado]} vs ano anterior")
-                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
-                else:
-                    st.success(f"Todas as categorias cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
-
-            except Exception as e:
-                st.error(f"Erro na Analise Inteligente: {e}")
-        else:
-            st.info("Selecione 2 anos no filtro lateral para ver a Analise Inteligente")
-    else:
-        st.warning("Nenhum dado com os filtros selecionados")
-else:
-    st.info("Upload dos 2.zip")
+                df
