@@ -79,18 +79,4 @@ if uploaded_files:
     st.sidebar.divider()
     st.sidebar.header("METAS")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 10000000.0, 1500000.0, 100000.0)
-    st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
-
-    if len(df_f) > 0:
-        st.divider()
-        c1, c2, c3 = st.columns(3)
-        fat = df_f['valor'].sum()
-        c1.metric("💰 Faturamento", f"R$ {fat:,.0f}")
-        c2.metric("📦 Ticket Medio", f"R$ {df_f['valor'].mean():,.2f}")
-        c3.metric("🧾 Qtd Vendas", f"{len(df_f):,}")
-
-        st.divider()
-        st.subheader("🎯 Acompanhamento de Meta")
-        ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
-        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
-        st.progress(min(ating_geral
+    st.sidebar.metric("
