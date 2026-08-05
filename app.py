@@ -82,8 +82,8 @@ if uploaded_files:
             f0 = dfa[dfa['ano']==ano0]['valor'].sum()
             cresc = ((f1-f0)/f0)*100 if f0>0 else 0
             x1,x2,x3 = st.columns(3)
-            x1.metric("Ano " + str(ano1), "R$ " + format(f1, ',.0f')) # SEM F-STRING
-            x2.metric("Ano " + str(ano0), "R$ " + format(f0, ',.0f')) # SEM F-STRING
+            x1.metric("Ano " + str(ano1), "R$ " + format(f1, ',.0f'))
+            x2.metric("Ano " + str(ano0), "R$ " + format(f0, ',.0f'))
             x3.metric("Crescimento", format(cresc, '.2f') + "%", delta=format(cresc, '.2f') + "%")
             fig = px.bar(dfa, x='ano', y='valor', text='valor')
             fig.update_traces(texttemplate='R$ %{y:,.0f}')
@@ -97,13 +97,17 @@ if uploaded_files:
                 dfl1 = df_f[df_f['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 dfl1.insert(0, 'Rank', range(1, len(dfl1) + 1))
                 dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100 if dfl1['valor'].sum() > 0 else 0
-                st.dataframe(dfl1[['Rank','loja','valor','% Total']].style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}).rename(columns={'loja':'Loja'}), use_container_width=True, height=400)
+                dfl1['valor'] = dfl1['valor'].apply(lambda x: "R$ " + format(x, ',.0f')) # FORMAT AQUI
+                dfl1['% Total'] = dfl1['% Total'].apply(lambda x: format(x, '.1f') + "%") # FORMAT AQUI
+                st.dataframe(dfl1[['Rank','loja','valor','% Total']].rename(columns={'loja':'Loja'}), use_container_width=True, height=400)
             with col_l2:
                 st.write("**" + str(ano0) + "**")
                 dfl0 = df_f[df_f['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
                 dfl0.insert(0, 'Rank', range(1, len(dfl0) + 1))
                 dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100 if dfl0['valor'].sum() > 0 else 0
-                st.dataframe(dfl0[['Rank','loja','valor','% Total']].style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}).rename(columns={'loja':'Loja'}), use_container_width=True, height=400)
+                dfl0['valor'] = dfl0['valor'].apply(lambda x: "R$ " + format(x, ',.0f')) # FORMAT AQUI
+                dfl0['% Total'] = dfl0['% Total'].apply(lambda x: format(x, '.1f') + "%") # FORMAT AQUI
+                st.dataframe(dfl0[['Rank','loja','valor','% Total']].rename(columns={'loja':'Loja'}), use_container_width=True, height=400)
             st.divider()
             st.subheader("🔥 Top 10 Produtos por Ano")
             col_p1, col_p2 = st.columns(2)
@@ -147,9 +151,13 @@ if uploaded_files:
                 df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
                 df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
                 df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+                df_queda_cat['Ano_Anterior'] = df_queda_cat['Ano_Anterior'].apply(lambda x: "R$ " + format(x, ',.0f'))
+                df_queda_cat['Ano_Atual'] = df_queda_cat['Ano_Atual'].apply(lambda x: "R$ " + format(x, ',.0f'))
+                df_queda_cat['Diferenca R$'] = df_queda_cat['Diferenca R$'].apply(lambda x: "R$ " + format(x, ',.0f'))
+                df_queda_cat['Crescimento %'] = df_queda_cat['Crescimento %'].apply(lambda x: format(x, '.2f') + "%")
                 if len(df_queda_cat) > 0:
                     st.warning("Categorias que perderam faturamento em " + calendar.month_name[mes_selecionado] + " vs ano anterior")
-                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                    st.dataframe(df_queda_cat, use_container_width=True)
                 else:
                     st.success("✅ Todas as categorias cresceram em " + calendar.month_name[mes_selecionado] + " vs ano anterior")
             except Exception as e:
