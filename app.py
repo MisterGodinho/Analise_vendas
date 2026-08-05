@@ -64,7 +64,6 @@ if uploaded_files:
 
     st.sidebar.header("FILTROS")
 
-    # FILTROS DINAMICOS ESTILO POWER BI
     anos = st.sidebar.multiselect("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_ano = df[df['ano'].isin(anos)] if anos else df
 
@@ -82,4 +81,44 @@ if uploaded_files:
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 10000000.0, 1500000.0, 100000.0)
     st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
 
-    if len(df     
+    if len(df_f) > 0:  # AQUI ESTAVA O ERRO - FALTAVA O )
+        st.divider()
+        c1, c2, c3 = st.columns(3)
+        fat = df_f['valor'].sum()
+        c1.metric("💰 Faturamento", f"R$ {fat:,.0f}")
+        c2.metric("📦 Ticket Medio", f"R$ {df_f['valor'].mean():,.2f}")
+        c3.metric("🧾 Qtd Vendas", f"{len(df_f):,}")
+
+        st.divider()
+        st.subheader("🎯 Acompanhamento de Meta")
+        ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
+        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
+        st.progress(min(ating_geral/100, 1.0))
+
+        anos_unicos = sorted(df_f['ano'].unique())
+
+        if len(anos_unicos) >= 2:
+            ano1 = anos_unicos[-1]
+            ano0 = anos_unicos[-2]
+
+            st.divider()
+            st.subheader("📈 Comparativo Ano a Ano")
+            dfa = df_f.groupby('ano')['valor'].sum().reset_index()
+            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
+            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
+            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
+            x1,x2,x3 = st.columns(3)
+            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
+            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
+            x3.metric("Crescimento", f"{cresc:.2f}%", delta=f"{cresc:.2f}%")
+            fig = px.bar(dfa, x='ano', y='valor', text='valor')
+            fig.update_traces(texttemplate='R$ %{y:,.0f}')
+            fig.update_yaxes(tickprefix='R$ ')
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.divider()
+            st.subheader("🏆 Ranking Top 10 Lojas")
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                st.write(f"**{ano1}**")
+                dfl1 = df_f[df_f['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).
