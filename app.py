@@ -105,7 +105,4 @@ if uploaded_files:
             st.subheader("📈 Comparativo Ano a Ano")
             dfa = df_f.groupby('ano')['valor'].sum().reset_index()
             f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
-            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
-            x1,x2,x3 = st.columns(3)
-            x1.metric(f"Ano {ano1}", f"R$ {
+            f0 = dfa[dfa['ano']==ano0]['valor
