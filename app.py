@@ -16,9 +16,9 @@ div[data-baseweb="tag"] { background-color: #ef4444!important; border-radius: 16
 div[data-baseweb="tag"] span { color: white!important; font-weight: 600; }
 
 /* CARD QUE FUNCIONA NO CLARO E ESCURO */
-.stMetric { 
+.stMetric {
     background-color: rgba(28, 131, 225, 0.1); /* azul bem clarinho transparente */
-    padding: 15px; 
+    padding: 15px;
     border-radius: 10px;
     border: 1px solid rgba(28, 131, 225, 0.2);
 }
@@ -74,41 +74,3 @@ if uploaded_files and len(uploaded_files) >= 2:
     # FILTROS DINAMICOS ESTILO POWER BI
     anos = st.sidebar.multiselect("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_ano = df[df['ano'].isin(anos)] if anos else df
-
-    meses_nome = st.sidebar.multiselect("MÊS", options=sorted(df['mes_nome'].unique()), default=sorted(df['mes_nome'].unique()))
-    df_mes = df_ano[df_ano['mes_nome'].isin(meses_nome)] if meses_nome else df_ano
-
-    # FILTRO EM CASCATA: Loja e Categoria só mostram o que tem nos filtros acima
-    lojas = st.sidebar.multiselect("LOJA", options=sorted(df_mes['loja'].unique()), default=sorted(df_mes['loja'].unique()))
-    df_loja = df_mes[df_mes['loja'].isin(lojas)] if lojas else df_mes
-
-    cats = st.sidebar.multiselect("CATEGORIA", options=sorted(df_loja['categoria'].unique()), default=sorted(df_loja['categoria'].unique()))
-    df_f = df_loja[df_loja['categoria'].isin(cats)] if cats else df_loja
-
-    st.sidebar.divider()
-    st.sidebar.header("METAS")
-    meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 5000000.0, 1500000.0, 100000.0)
-    st.sidebar.metric("TOTAL REGISTROS", f"{len(df_f):,}")
-
-    if len(df_f) > 0:
-        st.divider()
-        c1, c2, c3 = st.columns(3)
-        fat = df_f['valor'].sum()
-        c1.metric("💰 Faturamento", f"R$ {fat:,.0f}")
-        c2.metric("📦 Ticket Medio", f"R$ {df_f['valor'].mean():,.2f}")
-        c3.metric("🧾 Qtd Vendas", f"{len(df_f):,}")
-
-        st.divider()
-        st.subheader("🎯 Acompanhamento de Meta")
-        ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
-        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
-        st.progress(min(ating_geral/100, 1.0))
-
-        anos_unicos = sorted(df_f['ano'].unique())
-        if len(anos_unicos) > 1:
-            ano1 = anos_unicos[-1]
-            ano0 = anos_unicos[-2]
-
-            st.divider()
-            st.subheader("📈 Comparativo Ano a Ano")
-            d
