@@ -7,14 +7,21 @@ import gc
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
 
-# CSS PRA FICAR IGUAL POWER BI - TAGS VERMELHAS
+# CSS PRA FICAR IGUAL POWER BI - TAGS VERMELHAS + CARDS ADAPTATIVOS
 st.markdown("""
 <style>
 [data-testid="stSidebar"] { background-color: #1e293b; }
 [data-testid="stSidebar"] label { color: #e2e8f0!important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; }
 div[data-baseweb="tag"] { background-color: #ef4444!important; border-radius: 16px!important; } /* Vermelho */
 div[data-baseweb="tag"] span { color: white!important; font-weight: 600; }
-.stMetric { background-color: #1e293b; padding: 15px; border-radius: 10px; }
+
+/* CARD QUE FUNCIONA NO CLARO E ESCURO */
+.stMetric { 
+    background-color: rgba(28, 131, 225, 0.1); /* azul bem clarinho transparente */
+    padding: 15px; 
+    border-radius: 10px;
+    border: 1px solid rgba(28, 131, 225, 0.2);
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -78,9 +85,6 @@ if uploaded_files and len(uploaded_files) >= 2:
     cats = st.sidebar.multiselect("CATEGORIA", options=sorted(df_loja['categoria'].unique()), default=sorted(df_loja['categoria'].unique()))
     df_f = df_loja[df_loja['categoria'].isin(cats)] if cats else df_loja
 
-    # Converte mes_nome de volta pra mes_num pra filtrar
-    df_f = df_f[df_f['mes_num'].isin(df_f[df_f['mes_nome'].isin(meses_nome)]['mes_num'].unique())] if meses_nome else df_f
-
     st.sidebar.divider()
     st.sidebar.header("METAS")
     meta_geral = st.sidebar.number_input("Meta Geral R$", 0.0, 5000000.0, 1500000.0, 100000.0)
@@ -107,102 +111,4 @@ if uploaded_files and len(uploaded_files) >= 2:
 
             st.divider()
             st.subheader("📈 Comparativo Ano a Ano")
-            dfa = df_f.groupby('ano')['valor'].sum().reset_index()
-            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
-            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
-            x1,x2,x3 = st.columns(3)
-            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
-            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
-            x3.metric("Crescimento", f"{cresc:.2f}%", delta_color="normal")
-            fig = px.bar(dfa, x='ano', y='valor', text='valor')
-            fig.update_traces(texttemplate='R$ %{y:,.0f}')
-            fig.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig, use_container_width=True)
-
-            st.divider()
-            st.subheader("🏆 Ranking Top 10 Lojas")
-            col_l1, col_l2 = st.columns(2)
-            with col_l1:
-                st.write(f"**{ano1}**")
-                dfl1 = df_f[df_f['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100 if dfl1['valor'].sum() > 0 else 0
-                st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
-            with col_l2:
-                st.write(f"**{ano0}**")
-                dfl0 = df_f[df_f['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100 if dfl0['valor'].sum() > 0 else 0
-                st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
-
-            st.divider()
-            st.subheader("🔥 Top 10 Produtos por Ano")
-            col_p1, col_p2 = st.columns(2)
-            with col_p1:
-                st.write(f"**{ano1}**")
-                df_temp1 = df_f[df_f['ano']==ano1]
-                dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                # VALOR VISIVEL EM R$
-                dfp1['Valor R$'] = dfp1['valor'].apply(lambda x: f"R$ {x:,.2f}")
-                st.dataframe(dfp1[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
-                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano1}")
-                figp1.update_traces(textposition='outside')
-                figp1.update_xaxes(tickprefix='R$ ')
-                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp1, use_container_width=True)
-            with col_p2:
-                st.write(f"**{ano0}**")
-                df_temp0 = df_f[df_f['ano']==ano0]
-                dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                # VALOR VISIVEL EM R$
-                dfp0['Valor R$'] = dfp0['valor'].apply(lambda x: f"R$ {x:,.2f}")
-                st.dataframe(dfp0[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
-                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano0}")
-                figp0.update_traces(textposition='outside')
-                figp0.update_xaxes(tickprefix='R$ ')
-                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp0, use_container_width=True)
-
-            st.divider()
-            st.header("🧠 ANALISE INTELIGENTE: MES A MES")
-            mes_selecionado = st.selectbox("Selecione o Mês para Analisar", options=sorted(df_f['mes_num'].unique()), format_func=lambda x: calendar.month_name[x], index=0)
-
-            try:
-                df_mes0 = df_f[(df_f['ano']==ano0) & (df_f['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
-                df_mes0.columns = ['categoria','produto','Ano_Anterior']
-                df_mes1 = df_f[(df_f['ano']==ano1) & (df_f['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
-                df_mes1.columns = ['categoria','produto','Ano_Atual']
-                df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
-                df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
-                df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
-
-                st.subheader(f"1. Categorias em Queda em {calendar.month_name[mes_selecionado]}")
-                df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
-                df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
-                df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
-                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
-                if len(df_queda_cat) > 0:
-                    st.warning(f"Categorias que perderam faturamento em {calendar.month_name[mes_selecionado]} vs ano anterior")
-                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
-                else:
-                    st.success(f"✅ Todas as categorias cresceram em {calendar.month_name[mes_selecionado]} vs ano anterior")
-
-            except Exception as e:
-                st.error(f"Erro na Analise Inteligente: {e}")
-
-        elif len(anos_unicos) == 1:
-            st.info("Selecione 2 anos no filtro lateral para ver Comparativo e Analise Inteligente")
-            st.subheader(f"🔥 Top 10 Produtos - {anos_unicos[0]}")
-            df_temp = df_f[df_f['ano']==anos_unicos[0]]
-            dfp = df_temp.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-            dfp['Valor R$'] = dfp['valor'].apply(lambda x: f"R$ {x:,.2f}")
-            st.dataframe(dfp[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True)
-            figp = px.bar(dfp, x='valor', y='produto', orientation='h', text='Valor R$')
-            figp.update_traces(textposition='outside')
-            figp.update_xaxes(tickprefix='R$ ')
-            figp.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(figp, use_container_width=True)
-
-    else:
-        st.warning("⚠️ Nenhum dado com os filtros selecionados")
-else:
-    st.info("📤 Faça upload dos arquivos 2025.zip e 2026.zip")
+            d
