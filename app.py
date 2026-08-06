@@ -20,7 +20,6 @@ st.title("📊 Analise do Negocio BSB")
 st.caption("Performance de Vendas | 2025-2026")
 
 uploaded_files = st.file_uploader("1. Selecione 2025.zip e 2026.zip", type=['zip'], accept_multiple_files=True)
-
 MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
 
 @st.cache_data(show_spinner="Carregando e otimizando 29MB...")
@@ -86,31 +85,10 @@ if uploaded_files and len(uploaded_files) >= 2:
         c2.metric("📦 Ticket Medio", f"R$ {df_f['valor'].mean():,.2f}")
         c3.metric("🧾 Qtd Vendas", f"{len(df_f):,}")
 
-        st.divider()
-        st.subheader("🎯 Acompanhamento de Meta")
-        ating_geral = (fat / meta_geral) * 100 if meta_geral > 0 else 0
-        st.metric("Meta Geral", f"R$ {meta_geral:,.0f}", f"Atingimento: {ating_geral:.2f}%")
-        st.progress(min(ating_geral/100, 1.0))
-
         anos_unicos = sorted(df_f['ano'].unique())
         if len(anos_unicos) > 1:
             ano1 = anos_unicos[-1]
             ano0 = anos_unicos[-2]
-
-            st.divider()
-            st.subheader("📈 Comparativo Ano a Ano")
-            dfa = df_f.groupby('ano')['valor'].sum().reset_index()
-            f1 = dfa[dfa['ano']==ano1]['valor'].sum()
-            f0 = dfa[dfa['ano']==ano0]['valor'].sum()
-            cresc = ((f1-f0)/f0)*100 if f0>0 else 0
-            x1,x2,x3 = st.columns(3)
-            x1.metric(f"Ano {ano1}", f"R$ {f1:,.0f}")
-            x2.metric(f"Ano {ano0}", f"R$ {f0:,.0f}")
-            x3.metric("Crescimento", f"{cresc:.2f}%")
-            fig = px.bar(dfa, x='ano', y='valor', text='valor')
-            fig.update_traces(texttemplate='R$ %{y:,.0f}')
-            fig.update_yaxes(tickprefix='R$ ')
-            st.plotly_chart(fig, use_container_width=True)
 
             st.divider()
             st.header("🧠 ANALISE INTELIGENTE: MES A MES")
@@ -139,21 +117,41 @@ if uploaded_files and len(uploaded_files) >= 2:
                     st.warning(f"Categorias que perderam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
                     st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
-                    st.success(f"✅ Todas as categorias cresceram em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.success(f"✅ Nenhuma categoria teve queda em {MESES_PT[mes_selecionado]}")
 
-                # 2. TOP 20 PRODUTOS EM QUEDA COM CATEGORIA
+                # 1.1 CATEGORIAS EM ALTA - NOVO
+                st.subheader(f"1.1 Categorias em Alta em {MESES_PT[mes_selecionado]}")
+                df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
+                if len(df_cresce_cat) > 0:
+                    st.success(f"Categorias que ganharam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_cresce_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
+                else:
+                    st.warning(f"⚠️ Nenhuma categoria cresceu em {MESES_PT[mes_selecionado]}")
+
+                # 2. TOP 20 PRODUTOS EM QUEDA
                 st.divider()
                 st.subheader(f"2. Top 20 Produtos em Queda em {MESES_PT[mes_selecionado]}")
                 df_queda_prod = df_analise[(df_analise['Ano_Anterior'] > 0) & (df_analise['Crescimento %'] < 0)].sort_values('Diferenca R$').head(20)
-
                 if len(df_queda_prod) > 0:
-                    st.error(f"Top 20 produtos que mais perderam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.error(f"Top 20 produtos que mais perderam faturamento")
                     st.dataframe(df_queda_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
-                              .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
-                              .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
+                             .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
+                             .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
                                  use_container_width=True, height=450)
                 else:
-                    st.success(f"✅ Nenhum produto teve queda em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.success(f"✅ Nenhum produto teve queda em {MESES_PT[mes_selecionado]}")
+
+                # 2.1 TOP 20 PRODUTOS EM ALTA - NOVO
+                st.subheader(f"2.1 Top 20 Produtos em Alta em {MESES_PT[mes_selecionado]}")
+                df_cresce_prod = df_analise[(df_analise['Ano_Anterior'] > 0) & (df_analise['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False).head(20)
+                if len(df_cresce_prod) > 0:
+                    st.success(f"Top 20 produtos que mais ganharam faturamento")
+                    st.dataframe(df_cresce_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
+                             .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
+                             .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
+                                 use_container_width=True, height=450)
+                else:
+                    st.warning(f"⚠️ Nenhum produto cresceu em {MESES_PT[mes_selecionado]}")
 
             except Exception as e:
                 st.error(f"Erro na Analise Inteligente: {e}")
