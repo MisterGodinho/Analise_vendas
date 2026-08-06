@@ -62,7 +62,7 @@ if uploaded_files and len(uploaded_files) >= 2:
     df = carregar_dados(uploaded_files)
     st.success(f"✅ Carregado! {len(df):,} linhas | Memória: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
 
-    st.sidebar.header("FILTROS")
+    st.sidebar.header("FILTROS GERAIS")
     anos = st.sidebar.multiselect("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_ano = df[df['ano'].isin(anos)] if anos else df
     meses_nome = st.sidebar.multiselect("MÊS", options=sorted(df['mes_nome'].unique(), key=lambda x: list(MESES_PT.values()).index(x)), default=sorted(df['mes_nome'].unique(), key=lambda x: list(MESES_PT.values()).index(x)))
@@ -114,44 +114,60 @@ if uploaded_files and len(uploaded_files) >= 2:
                 df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
                 df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
                 if len(df_queda_cat) > 0:
-                    st.warning(f"Categorias que perderam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.warning(f"Categorias que perderam faturamento")
                     st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
-                    st.success(f"✅ Nenhuma categoria teve queda em {MESES_PT[mes_selecionado]}")
+                    st.success(f"✅ Nenhuma categoria teve queda")
 
-                # 1.1 CATEGORIAS EM ALTA - NOVO
+                # 1.1 CATEGORIAS EM ALTA
                 st.subheader(f"1.1 Categorias em Alta em {MESES_PT[mes_selecionado]}")
                 df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
                 if len(df_cresce_cat) > 0:
-                    st.success(f"Categorias que ganharam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.success(f"Categorias que ganharam faturamento")
                     st.dataframe(df_cresce_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
-                    st.warning(f"⚠️ Nenhuma categoria cresceu em {MESES_PT[mes_selecionado]}")
+                    st.warning(f"⚠️ Nenhuma categoria cresceu")
 
-                # 2. TOP 20 PRODUTOS EM QUEDA
+                # 2. PRODUTOS COM FILTRO DE CATEGORIA
                 st.divider()
-                st.subheader(f"2. Top 20 Produtos em Queda em {MESES_PT[mes_selecionado]}")
-                df_queda_prod = df_analise[(df_analise['Ano_Anterior'] > 0) & (df_analise['Crescimento %'] < 0)].sort_values('Diferenca R$').head(20)
-                if len(df_queda_prod) > 0:
-                    st.error(f"Top 20 produtos que mais perderam faturamento")
-                    st.dataframe(df_queda_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
-                             .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
-                             .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
-                                 use_container_width=True, height=450)
-                else:
-                    st.success(f"✅ Nenhum produto teve queda em {MESES_PT[mes_selecionado]}")
+                st.subheader(f"2. Análise de Produtos em {MESES_PT[mes_selecionado]}")
 
-                # 2.1 TOP 20 PRODUTOS EM ALTA - NOVO
-                st.subheader(f"2.1 Top 20 Produtos em Alta em {MESES_PT[mes_selecionado]}")
-                df_cresce_prod = df_analise[(df_analise['Ano_Anterior'] > 0) & (df_analise['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False).head(20)
-                if len(df_cresce_prod) > 0:
-                    st.success(f"Top 20 produtos que mais ganharam faturamento")
-                    st.dataframe(df_cresce_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
-                             .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
-                             .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
-                                 use_container_width=True, height=450)
-                else:
-                    st.warning(f"⚠️ Nenhum produto cresceu em {MESES_PT[mes_selecionado]}")
+                # FILTRO NOVO AQUI
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    cat_filtro_prod = st.multiselect(
+                        "Filtrar por Categoria",
+                        options=sorted(df_analise['categoria'].unique()),
+                        default=sorted(df_analise['categoria'].unique()),
+                        key="filtro_cat_prod"
+                    )
+                with col_f2:
+                    st.metric("Categorias Selecionadas", len(cat_filtro_prod))
+
+                df_analise_filtrado = df_analise[df_analise['categoria'].isin(cat_filtro_prod)] if cat_filtro_prod else df_analise
+
+                col_p1, col_p2 = st.columns(2)
+                with col_p1:
+                    st.markdown("#### 🔴 Top 20 Produtos em Queda")
+                    df_queda_prod = df_analise_filtrado[(df_analise_filtrado['Ano_Anterior'] > 0) & (df_analise_filtrado['Crescimento %'] < 0)].sort_values('Diferenca R$').head(20)
+                    if len(df_queda_prod) > 0:
+                        st.dataframe(df_queda_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
+                                .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
+                                .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
+                                     use_container_width=True, height=400)
+                    else:
+                        st.info("Nenhum produto em queda com esse filtro")
+
+                with col_p2:
+                    st.markdown("#### 🟢 Top 20 Produtos em Alta")
+                    df_cresce_prod = df_analise_filtrado[(df_analise_filtrado['Ano_Anterior'] > 0) & (df_analise_filtrado['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False).head(20)
+                    if len(df_cresce_prod) > 0:
+                        st.dataframe(df_cresce_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
+                                .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
+                                .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
+                                     use_container_width=True, height=400)
+                    else:
+                        st.info("Nenhum produto em alta com esse filtro")
 
             except Exception as e:
                 st.error(f"Erro na Analise Inteligente: {e}")
