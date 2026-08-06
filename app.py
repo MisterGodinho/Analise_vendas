@@ -12,7 +12,6 @@ st.markdown("""
 [data-testid="stSidebar"] label { color: #e2e8f0!important; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; }
 div[data-baseweb="tag"] { background-color: #ef4444!important; border-radius: 16px!important; }
 div[data-baseweb="tag"] span { color: white!important; font-weight: 600; }
-.stMetric { background-color: rgba(28, 131, 225, 0.1); padding: 15px; border-radius: 10px; border: 1px solid rgba(28, 131, 225, 0.2); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -52,6 +51,7 @@ def carregar_dados(files):
     df = df[df['loja']!= '']
     df['ano'] = df['data'].dt.year.astype('int16')
     df['mes_num'] = df['data'].dt.month.astype('int8')
+    df['dia'] = df['data'].dt.day.astype('int8') # NOVO
     df['mes_nome'] = df['mes_num'].map(MESES_PT)
     df['loja'] = df['loja'].astype('category')
     df['produto'] = df['produto'].astype('category')
@@ -91,55 +91,64 @@ if uploaded_files and len(uploaded_files) >= 2:
             ano0 = anos_unicos[-2]
 
             st.divider()
-            st.header("🧠 ANALISE INTELIGENTE: MES A MES")
-            mes_selecionado = st.selectbox("Selecione o Mês para Analisar", options=sorted(df_f['mes_num'].unique()), format_func=lambda x: MESES_PT[x], index=0)
+            st.header("🧠 ANALISE INTELIGENTE: DIA A DIA")
+
+            col_m1, col_m2 = st.columns(2)
+            with col_m1:
+                mes_selecionado = st.selectbox("1. Selecione o Mês", options=sorted(df_f['mes_num'].unique()), format_func=lambda x: MESES_PT[x], index=0)
+            with col_m2:
+                # NOVO FILTRO DE DIA
+                dias_disponiveis = sorted(df_f[df_f['mes_num']==mes_selecionado]['dia'].unique())
+                dia_selecionado = st.selectbox("2. Selecione o Dia", options=dias_disponiveis, index=len(dias_disponiveis)-1) # Pega o último dia por padrão
+                st.caption(f"Comparando: {dia_selecionado}/{mes_selecionado}/{ano0} vs {dia_selecionado}/{mes_selecionado}/{ano1}")
 
             try:
                 df_temp = df_f.copy()
                 df_temp['categoria'] = df_temp['categoria'].astype(str)
                 df_temp['produto'] = df_temp['produto'].astype(str)
 
-                df_mes0 = df_temp[(df_temp['ano']==ano0) & (df_temp['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                # FILTRO POR DIA AGORA
+                df_mes0 = df_temp[(df_temp['ano']==ano0) & (df_temp['mes_num']==mes_selecionado) & (df_temp['dia']==dia_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes0.columns = ['categoria','produto','Ano_Anterior']
-                df_mes1 = df_temp[(df_temp['ano']==ano1) & (df_temp['mes_num']==mes_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
+                df_mes1 = df_temp[(df_temp['ano']==ano1) & (df_temp['mes_num']==mes_selecionado) & (df_temp['dia']==dia_selecionado)].groupby(['categoria','produto'])['valor'].sum().reset_index()
                 df_mes1.columns = ['categoria','produto','Ano_Atual']
                 df_analise = pd.merge(df_mes0, df_mes1, on=['categoria','produto'], how='outer').fillna(0)
                 df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
                 df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
 
-                # 1. CATEGORIAS EM QUEDA
-                st.subheader(f"1. Categorias em Queda em {MESES_PT[mes_selecionado]}")
+                # 1. CATEGORIAS
+                st.subheader(f"1. Categorias no dia {dia_selecionado} de {MESES_PT[mes_selecionado]}")
                 df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
                 df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
                 df_cat_comp['Crescimento %'] = (df_cat_comp['Diferenca R$'] / df_cat_comp['Ano_Anterior'].replace(0,1)) * 100
-                df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
-                if len(df_queda_cat) > 0:
-                    st.warning(f"Categorias que perderam faturamento")
-                    st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
-                else:
-                    st.success(f"✅ Nenhuma categoria teve queda")
 
-                # 1.1 CATEGORIAS EM ALTA
-                st.subheader(f"1.1 Categorias em Alta em {MESES_PT[mes_selecionado]}")
-                df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
-                if len(df_cresce_cat) > 0:
-                    st.success(f"Categorias que ganharam faturamento")
-                    st.dataframe(df_cresce_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
-                else:
-                    st.warning(f"⚠️ Nenhuma categoria cresceu")
+                col_c1, col_c2 = st.columns(2)
+                with col_c1:
+                    st.markdown("#### 🔴 Em Queda")
+                    df_queda_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] < 0)].sort_values('Diferenca R$')
+                    if len(df_queda_cat) > 0:
+                        st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True, height=300)
+                    else:
+                        st.success("Nenhuma em queda")
+                with col_c2:
+                    st.markdown("#### 🟢 Em Alta")
+                    df_cresce_cat = df_cat_comp[(df_cat_comp['Ano_Anterior'] > 0) & (df_cat_comp['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False)
+                    if len(df_cresce_cat) > 0:
+                        st.dataframe(df_cresce_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True, height=300)
+                    else:
+                        st.warning("Nenhuma em alta")
 
                 # 2. PRODUTOS COM FILTRO DE CATEGORIA
                 st.divider()
-                st.subheader(f"2. Análise de Produtos em {MESES_PT[mes_selecionado]}")
+                st.subheader(f"2. Análise de Produtos no dia {dia_selecionado}")
 
-                # FILTRO NOVO AQUI
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
                     cat_filtro_prod = st.multiselect(
                         "Filtrar por Categoria",
                         options=sorted(df_analise['categoria'].unique()),
                         default=sorted(df_analise['categoria'].unique()),
-                        key="filtro_cat_prod"
+                        key="filtro_cat_prod_dia"
                     )
                 with col_f2:
                     st.metric("Categorias Selecionadas", len(cat_filtro_prod))
@@ -152,22 +161,22 @@ if uploaded_files and len(uploaded_files) >= 2:
                     df_queda_prod = df_analise_filtrado[(df_analise_filtrado['Ano_Anterior'] > 0) & (df_analise_filtrado['Crescimento %'] < 0)].sort_values('Diferenca R$').head(20)
                     if len(df_queda_prod) > 0:
                         st.dataframe(df_queda_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
-                                .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
-                                .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
+                               .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
+                               .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
                                      use_container_width=True, height=400)
                     else:
-                        st.info("Nenhum produto em queda com esse filtro")
+                        st.info("Nenhum produto em queda")
 
                 with col_p2:
                     st.markdown("#### 🟢 Top 20 Produtos em Alta")
                     df_cresce_prod = df_analise_filtrado[(df_analise_filtrado['Ano_Anterior'] > 0) & (df_analise_filtrado['Crescimento %'] > 0)].sort_values('Diferenca R$', ascending=False).head(20)
                     if len(df_cresce_prod) > 0:
                         st.dataframe(df_cresce_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
-                                .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
-                                .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
+                               .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
+                               .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
                                      use_container_width=True, height=400)
                     else:
-                        st.info("Nenhum produto em alta com esse filtro")
+                        st.info("Nenhum produto em alta")
 
             except Exception as e:
                 st.error(f"Erro na Analise Inteligente: {e}")
