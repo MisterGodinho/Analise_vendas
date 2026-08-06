@@ -6,7 +6,6 @@ import gc
 
 st.set_page_config(page_title="Analise do Negocio BSB", layout="wide")
 
-# CSS PRA FICAR IGUAL POWER BI - TAGS VERMELHAS + CARDS
 st.markdown("""
 <style>
 [data-testid="stSidebar"] { background-color: #1e293b; }
@@ -22,7 +21,6 @@ st.caption("Performance de Vendas | 2025-2026")
 
 uploaded_files = st.file_uploader("1. Selecione 2025.zip e 2026.zip", type=['zip'], accept_multiple_files=True)
 
-# MESES EM PORTUGUES
 MESES_PT = {1:'Janeiro', 2:'Fevereiro', 3:'Março', 4:'Abril', 5:'Maio', 6:'Junho', 7:'Julho', 8:'Agosto', 9:'Setembro', 10:'Outubro', 11:'Novembro', 12:'Dezembro'}
 
 @st.cache_data(show_spinner="Carregando e otimizando 29MB...")
@@ -46,8 +44,6 @@ def carregar_dados(files):
     if len(lista_df) == 0: return pd.DataFrame()
 
     df = pd.concat(lista_df, ignore_index=True); del lista_df; gc.collect()
-
-    # OTIMIZAÇÃO PESADA
     df['valor'] = pd.to_numeric(df['valor'].astype(str).str.replace('.', '').str.replace(',', '.'), errors='coerce').astype('float32')
     df['data'] = pd.to_datetime(df['data'], dayfirst=True, errors='coerce')
     df['loja'] = df['loja'].astype(str).str.strip()
@@ -58,12 +54,9 @@ def carregar_dados(files):
     df['ano'] = df['data'].dt.year.astype('int16')
     df['mes_num'] = df['data'].dt.month.astype('int8')
     df['mes_nome'] = df['mes_num'].map(MESES_PT)
-
-    # Só converte pra category DEPOIS de limpar tudo
     df['loja'] = df['loja'].astype('category')
     df['produto'] = df['produto'].astype('category')
     df['categoria'] = df['categoria'].astype('category')
-
     return df
 
 if uploaded_files and len(uploaded_files) >= 2:
@@ -71,16 +64,12 @@ if uploaded_files and len(uploaded_files) >= 2:
     st.success(f"✅ Carregado! {len(df):,} linhas | Memória: {df.memory_usage(deep=True).sum() / 1024**2:.1f} MB")
 
     st.sidebar.header("FILTROS")
-
     anos = st.sidebar.multiselect("ANO", options=sorted(df['ano'].unique()), default=sorted(df['ano'].unique()))
     df_ano = df[df['ano'].isin(anos)] if anos else df
-
     meses_nome = st.sidebar.multiselect("MÊS", options=sorted(df['mes_nome'].unique(), key=lambda x: list(MESES_PT.values()).index(x)), default=sorted(df['mes_nome'].unique(), key=lambda x: list(MESES_PT.values()).index(x)))
     df_mes = df_ano[df_ano['mes_nome'].isin(meses_nome)] if meses_nome else df_ano
-
     lojas = st.sidebar.multiselect("LOJA", options=sorted(df_mes['loja'].unique()), default=sorted(df_mes['loja'].unique()))
     df_loja = df_mes[df_mes['loja'].isin(lojas)] if lojas else df_mes
-
     cats = st.sidebar.multiselect("CATEGORIA", options=sorted(df_loja['categoria'].unique()), default=sorted(df_loja['categoria'].unique()))
     df_f = df_loja[df_loja['categoria'].isin(cats)] if cats else df_loja
 
@@ -124,51 +113,10 @@ if uploaded_files and len(uploaded_files) >= 2:
             st.plotly_chart(fig, use_container_width=True)
 
             st.divider()
-            st.subheader("🏆 Ranking Top 10 Lojas")
-            col_l1, col_l2 = st.columns(2)
-            with col_l1:
-                st.write(f"**{ano1}**")
-                dfl1 = df_f[df_f['ano']==ano1].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfl1['% Total'] = (dfl1['valor'] / dfl1['valor'].sum()) * 100 if dfl1['valor'].sum() > 0 else 0
-                st.dataframe(dfl1.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
-            with col_l2:
-                st.write(f"**{ano0}**")
-                dfl0 = df_f[df_f['ano']==ano0].groupby('loja')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfl0['% Total'] = (dfl0['valor'] / dfl0['valor'].sum()) * 100 if dfl0['valor'].sum() > 0 else 0
-                st.dataframe(dfl0.style.format({'valor':'R$ {:,.0f}', '% Total':'{:.1f}%'}), use_container_width=True, height=400)
-
-            st.divider()
-            st.subheader("🔥 Top 10 Produtos por Ano")
-            col_p1, col_p2 = st.columns(2)
-            with col_p1:
-                st.write(f"**{ano1}**")
-                df_temp1 = df_f[df_f['ano']==ano1]
-                dfp1 = df_temp1.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfp1['Valor R$'] = dfp1['valor'].apply(lambda x: f"R$ {x:,.2f}")
-                st.dataframe(dfp1[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
-                figp1 = px.bar(dfp1, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano1}")
-                figp1.update_traces(textposition='outside')
-                figp1.update_xaxes(tickprefix='R$ ')
-                figp1.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp1, use_container_width=True)
-            with col_p2:
-                st.write(f"**{ano0}**")
-                df_temp0 = df_f[df_f['ano']==ano0]
-                dfp0 = df_temp0.groupby('produto')['valor'].sum().reset_index().sort_values('valor', ascending=False).head(10)
-                dfp0['Valor R$'] = dfp0['valor'].apply(lambda x: f"R$ {x:,.2f}")
-                st.dataframe(dfp0[['produto', 'Valor R$']].rename(columns={'produto':'Produto'}), use_container_width=True, height=400)
-                figp0 = px.bar(dfp0, x='valor', y='produto', orientation='h', text='Valor R$', title=f"Top 10 - {ano0}")
-                figp0.update_traces(textposition='outside')
-                figp0.update_xaxes(tickprefix='R$ ')
-                figp0.update_layout(yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(figp0, use_container_width=True)
-
-            st.divider()
             st.header("🧠 ANALISE INTELIGENTE: MES A MES")
             mes_selecionado = st.selectbox("Selecione o Mês para Analisar", options=sorted(df_f['mes_num'].unique()), format_func=lambda x: MESES_PT[x], index=0)
 
             try:
-                # CORREÇÃO PRINCIPAL: Converte pra string antes do merge
                 df_temp = df_f.copy()
                 df_temp['categoria'] = df_temp['categoria'].astype(str)
                 df_temp['produto'] = df_temp['produto'].astype(str)
@@ -181,6 +129,7 @@ if uploaded_files and len(uploaded_files) >= 2:
                 df_analise['Diferenca R$'] = df_analise['Ano_Atual'] - df_analise['Ano_Anterior']
                 df_analise['Crescimento %'] = (df_analise['Diferenca R$'] / df_analise['Ano_Anterior'].replace(0,1)) * 100
 
+                # 1. CATEGORIAS EM QUEDA
                 st.subheader(f"1. Categorias em Queda em {MESES_PT[mes_selecionado]}")
                 df_cat_comp = df_analise.groupby('categoria')[['Ano_Anterior','Ano_Atual']].sum()
                 df_cat_comp['Diferenca R$'] = df_cat_comp['Ano_Atual'] - df_cat_comp['Ano_Anterior']
@@ -191,6 +140,20 @@ if uploaded_files and len(uploaded_files) >= 2:
                     st.dataframe(df_queda_cat.style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}), use_container_width=True)
                 else:
                     st.success(f"✅ Todas as categorias cresceram em {MESES_PT[mes_selecionado]} vs ano anterior")
+
+                # 2. TOP 20 PRODUTOS EM QUEDA COM CATEGORIA
+                st.divider()
+                st.subheader(f"2. Top 20 Produtos em Queda em {MESES_PT[mes_selecionado]}")
+                df_queda_prod = df_analise[(df_analise['Ano_Anterior'] > 0) & (df_analise['Crescimento %'] < 0)].sort_values('Diferenca R$').head(20)
+
+                if len(df_queda_prod) > 0:
+                    st.error(f"Top 20 produtos que mais perderam faturamento em {MESES_PT[mes_selecionado]} vs ano anterior")
+                    st.dataframe(df_queda_prod[['categoria', 'produto', 'Ano_Anterior', 'Ano_Atual', 'Diferenca R$', 'Crescimento %']]
+                              .rename(columns={'categoria':'Categoria', 'produto':'Produto'})
+                              .style.format({'Ano_Anterior':'R$ {:,.0f}', 'Ano_Atual':'R$ {:,.0f}', 'Diferenca R$':'R$ {:,.0f}', 'Crescimento %':'{:.2f}%'}),
+                                 use_container_width=True, height=450)
+                else:
+                    st.success(f"✅ Nenhum produto teve queda em {MESES_PT[mes_selecionado]} vs ano anterior")
 
             except Exception as e:
                 st.error(f"Erro na Analise Inteligente: {e}")
